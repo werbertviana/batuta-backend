@@ -1,13 +1,9 @@
-# Batuta
-> Status: Em desenvolvimento
-
-* Para tornar o ensino de teoria musical mais acessível e envolvente, este projeto visa desenvolver um aplicativo móvel chamado BATUTA, baseado em gamificação. A gamificação envolve a incorporação de elementos de jogos para resolver problemas práticos e engajar o público.
-
-* Na aplicação BATUTA, os conteúdos são abordados de maneira envolvente e interativa, utilizando o formato lúdico dos jogos "quiz" para testar e consolidar o conhecimento. 
-
-* O diferencial do BATUTA está na abordagem lúdica e inovadora da gamificação, que motiva e estimula o aprendizado, proporcionando uma experiência educacional envolvente.
-
-<img src="src/assets/images/BG/BG1.jpg"> </image>
+# Batuta Backend 🎵
+![Node.js](https://img.shields.io/badge/Node.js-backend-green)
+![Status](https://img.shields.io/badge/status-em%20desenvolvimento-yellow)
+> API backend do aplicativo **Batuta**, responsável por gerenciar dados, usuários e funcionalidades necessárias para o funcionamento do aplicativo mobile.
+* O Batuta é um aplicativo gamificado para ensino de teoria musical.  
+* Esta API fornece os serviços necessários para suportar as funcionalidades da aplicação mobile.
 
 # Batuta - Backend
 * O Back-End teve sua implementação realizada em Node JS juntamente com o uso das tecnologias do Typescript e PrismaORM. Para os testes de requisição da API foi utilizado o Insomnia.
