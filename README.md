@@ -27,20 +27,25 @@ A API é responsável por:
 
 ---
 
+# 🛠 Tecnologias utilizadas
+Este projeto utiliza as seguintes tecnologias:
 
-  
-# Arquitetura da API
-* O padrão de arquitetura de software escolhido foi o RESTful, juntamente com a estrutura de acesso ao banco de dados estabelecida pelo PrismaORM.
-  
-# Tecnologias utilizadas no projeto
-1. Node.Js
-2. Typescript
-3. PrismaORM
-4. Express
-5. Docker
-   
-<img src="src/assets/images/BG/BG4.jpg"> </image>
-   
+- **Node.js**
+- **TypeScript**
+- **Express**
+- **Prisma ORM**
+- **Docker**
+- **Insomnia** (testes de requisição)
+<img src="src/assets/images/BG/BG4.jpg">
+
+---
+
+# 📂 Estrutura do projeto
+
+A aplicação foi organizada para facilitar manutenção e escalabilidade.
+
+---
+
 # 🎥 Vídeo demonstrativo do BATUTA
 
 https://github.com/user-attachments/assets/aa1a286a-eaa3-4d26-98a6-ae738c7ffa3f
