@@ -5,10 +5,28 @@
 * O Batuta é um aplicativo gamificado para ensino de teoria musical.  
 * Esta API fornece os serviços necessários para suportar as funcionalidades da aplicação mobile.
 
-# Batuta - Backend
-* O Back-End teve sua implementação realizada em Node JS juntamente com o uso das tecnologias do Typescript e PrismaORM. Para os testes de requisição da API foi utilizado o Insomnia.
+---
 
-<img src="src/assets/images/BG/BG3.jpg"> </image>
+# 🎮 Sobre o projeto
+Para tornar o ensino de teoria musical mais acessível e envolvente, o projeto BATUTA utiliza conceitos de **gamificação** para incentivar o aprendizado.
+
+A API é responsável por:
+
+- gerenciamento de dados da aplicação
+- comunicação com banco de dados
+- organização da lógica de negócio
+- suporte às funcionalidades do aplicativo mobile
+
+---
+
+# 🏗 Arquitetura da API
+
+* A API foi construída seguindo os princípios de arquitetura **RESTful**, permitindo comunicação eficiente entre o aplicativo mobile e o servidor.
+
+* A aplicação utiliza **Express** para criação dos endpoints e **Prisma ORM** para gerenciamento e acesso ao banco de dados.
+
+---
+
 
   
 # Arquitetura da API
