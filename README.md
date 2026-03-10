@@ -4,6 +4,7 @@
 > API backend do aplicativo **Batuta**, responsável por gerenciar dados, usuários e funcionalidades necessárias para o funcionamento do aplicativo mobile.
 * O Batuta é um aplicativo gamificado para ensino de teoria musical.  
 * Esta API fornece os serviços necessários para suportar as funcionalidades da aplicação mobile.
+  
 <img src="src/assets/images/BG/BG1.jpg">
 
 ---
@@ -44,6 +45,8 @@ Este projeto utiliza as seguintes tecnologias:
 # 📂 Estrutura do projeto
 
 A aplicação foi organizada para facilitar manutenção e escalabilidade.
+
+<img src="src/assets/images/BG/BG5.jpg">
 
 ---
 
