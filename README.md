@@ -28,6 +28,16 @@ A API é responsável por:
 * A aplicação utiliza **Express** para criação dos endpoints e **Prisma ORM** para gerenciamento e acesso ao banco de dados.
 
 ---
+# 🔌 Funcionalidades da API
+
+A API do Batuta é responsável por:
+
+- Gerenciamento de usuários
+- Controle de dados da aplicação
+- Suporte às funcionalidades do aplicativo mobile
+- Organização da lógica de negócio
+  
+---
 
 # 🛠 Tecnologias utilizadas
 Este projeto utiliza as seguintes tecnologias:
