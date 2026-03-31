@@ -79,9 +79,33 @@ npm run dev
 ```
 ---
 
-# 🚀 Como executar o projeto
+# 🔗 Integração com o aplicativo mobile
 
-# 🎥 Vídeo demonstrativo do BATUTA
+Esta API é utilizada pelo aplicativo mobile desenvolvido em React Native.
+
+Frontend do projeto:
+
+https://github.com/werbertviana/batuta-integra
+
+---
+
+# 🎥 Demonstração
+
+Vídeo demonstrativo da aplicação:
 
 https://github.com/user-attachments/assets/aa1a286a-eaa3-4d26-98a6-ae738c7ffa3f
 
+---
+# 📚 Contexto do projeto
+
+O Batuta foi desenvolvido como parte de um projeto acadêmico voltado ao ensino musical, explorando o uso de gamificação aplicada à educação através de aplicações móveis.
+
+---
+# 👨‍💻 Autor
+
+Werbert Viana
+
+Desenvolvedor focado em aplicações mobile e backend utilizando tecnologias JavaScript.
+
+GitHub
+https://github.com/werbertviana
