@@ -49,6 +49,37 @@ A aplicação foi organizada para facilitar manutenção e escalabilidade.
 <img src="src/assets/images/BG/BG5.jpg">
 
 ---
+# 🚀 Como executar o projeto
+
+### Pré-requisitos
+
+- Node.js
+- npm ou yarn
+- Docker (opcional)
+
+### Clonar o repositório
+
+```bash
+git clone https://github.com/werbertviana/batuta-api
+```
+### Entrar na pasta
+
+```bash
+cd batuta-api
+```
+### Instalar dependências
+
+```bash
+npm install
+```
+### Executar o projeto
+
+```bash
+npm run dev
+```
+---
+
+# 🚀 Como executar o projeto
 
 # 🎥 Vídeo demonstrativo do BATUTA
 
