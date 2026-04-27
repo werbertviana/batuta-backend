@@ -15,21 +15,48 @@ enum Elo {
   OURO
   PLATINA
   DIAMANTE
+  MAESTRO
 }
 
 model User {
-  id           Int    @id @default(autoincrement())
-  name         String
-  email        String @unique
-  passwordHash String
+  id            Int                  @id @default(autoincrement())
+  name          String
+  email         String               @unique
+  passwordHash  String
 
-  // Game stats (na mesma tabela)
-  lifePoints   Int    @default(3)
-  batutaPoints Int    @default(0)
-  xpPoints     Int    @default(0)
-  elo          Elo    @default(FERRO)
-  nivel        String @default("1")
+  lifePoints    Int                  @default(3)
+  batutaPoints  Int                  @default(0)
+  xpPoints      Int                  @default(0)
+  elo           Elo                  @default(FERRO)
+  progressLevel Int                  @default(1)
+
+  activityProgress UserActivityProgress[]
+  lessonRewards    UserLessonReward[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model UserActivityProgress {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  atividade        String
+  completedAt      DateTime @default(now())
+  bonusLifeGranted Boolean  @default(false)
+  bonusXpGranted   Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, atividade])
+}
+
+model UserLessonReward {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  lesson     String
+  rewardedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lesson])
 }

@@ -1,17 +1,21 @@
 import bcrypt from "bcrypt";
+import { Elo, Prisma } from "@prisma/client";
 import { prisma } from "../../shared/prisma";
 import type { CreateUserInput, UpdateUserInput } from "./users.types";
-import { Elo } from "@prisma/client";
 
 function toPrismaElo(elo?: string): Elo | undefined {
   if (!elo) return undefined;
+
   const v = elo.toLowerCase();
+
   if (v === "ferro") return Elo.FERRO;
   if (v === "bronze") return Elo.BRONZE;
   if (v === "prata") return Elo.PRATA;
   if (v === "ouro") return Elo.OURO;
   if (v === "platina") return Elo.PLATINA;
   if (v === "diamante") return Elo.DIAMANTE;
+  if (v === "maestro") return Elo.MAESTRO;
+
   return Elo.FERRO;
 }
 
@@ -25,12 +29,11 @@ export class UsersRepository {
         name: data.name,
         email: data.email,
         passwordHash,
-
         lifePoints: gs.lifePoints ?? 3,
         batutaPoints: gs.batutaPoints ?? 0,
         xpPoints: gs.xpPoints ?? 0,
         elo: toPrismaElo(gs.elo) ?? Elo.FERRO,
-        nivel: gs.nivel ?? "1",
+        progressLevel: gs.progressLevel ?? 1,
       },
     });
   }
@@ -43,7 +46,6 @@ export class UsersRepository {
     return prisma.user.findUnique({ where: { email } });
   }
 
-  // ✅ específico pra autenticação (inclui passwordHash no tipo)
   async findByEmailWithPassword(email: string) {
     return prisma.user.findUnique({
       where: { email },
@@ -52,12 +54,11 @@ export class UsersRepository {
         name: true,
         email: true,
         passwordHash: true,
-
         lifePoints: true,
         batutaPoints: true,
         xpPoints: true,
         elo: true,
-        nivel: true,
+        progressLevel: true,
       },
     });
   }
@@ -69,15 +70,14 @@ export class UsersRepository {
   async update(id: number, data: UpdateUserInput) {
     const gs = data.gameStats;
 
-    const patch: Record<string, any> = {
+    const patch: Record<string, unknown> = {
       ...(data.name !== undefined ? { name: data.name } : {}),
       ...(data.email !== undefined ? { email: data.email } : {}),
-
       ...(gs?.lifePoints !== undefined ? { lifePoints: gs.lifePoints } : {}),
       ...(gs?.batutaPoints !== undefined ? { batutaPoints: gs.batutaPoints } : {}),
       ...(gs?.xpPoints !== undefined ? { xpPoints: gs.xpPoints } : {}),
       ...(gs?.elo !== undefined ? { elo: toPrismaElo(gs.elo) ?? Elo.FERRO } : {}),
-      ...(gs?.nivel !== undefined ? { nivel: gs.nivel } : {}),
+      ...(gs?.progressLevel !== undefined ? { progressLevel: gs.progressLevel } : {}),
     };
 
     if (data.password !== undefined) {
@@ -87,6 +87,121 @@ export class UsersRepository {
     return prisma.user.update({
       where: { id },
       data: patch,
+    });
+  }
+
+  async findActivityProgress(userId: number, atividade: string) {
+    return prisma.userActivityProgress.findUnique({
+      where: {
+        userId_atividade: {
+          userId,
+          atividade,
+        },
+      },
+    });
+  }
+
+  async countCompletedActivitiesForLesson(userId: number, atividades: string[]) {
+    return prisma.userActivityProgress.count({
+      where: {
+        userId,
+        atividade: {
+          in: atividades,
+        },
+      },
+    });
+  }
+
+  async findLessonReward(userId: number, lesson: string) {
+    return prisma.userLessonReward.findUnique({
+      where: {
+        userId_lesson: {
+          userId,
+          lesson,
+        },
+      },
+    });
+  }
+
+  async completeActivityTransaction(args: {
+    userId: number;
+    atividade: string;
+    xpPoints: number;
+    batutaPoints: number;
+    lifePoints: number;
+    elo: string;
+    progressLevel: number;
+    shouldCreateProgress: boolean;
+    shouldCreateLessonReward: boolean;
+    lessonKey: string | null;
+    shouldGrantBonusLife: boolean;
+    shouldGrantBonusXp: boolean;
+    shouldUpdateBonusLifeFlag: boolean;
+    shouldUpdateBonusXpFlag: boolean;
+  }) {
+    const {
+      userId,
+      atividade,
+      xpPoints,
+      batutaPoints,
+      lifePoints,
+      elo,
+      progressLevel,
+      shouldCreateProgress,
+      shouldCreateLessonReward,
+      lessonKey,
+      shouldGrantBonusLife,
+      shouldGrantBonusXp,
+      shouldUpdateBonusLifeFlag,
+      shouldUpdateBonusXpFlag,
+    } = args;
+
+    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      if (shouldCreateProgress) {
+        await tx.userActivityProgress.create({
+          data: {
+            userId,
+            atividade,
+            bonusLifeGranted: shouldGrantBonusLife,
+            bonusXpGranted: shouldGrantBonusXp,
+          },
+        });
+      } else if (shouldUpdateBonusLifeFlag || shouldUpdateBonusXpFlag) {
+        await tx.userActivityProgress.update({
+          where: {
+            userId_atividade: {
+              userId,
+              atividade,
+            },
+          },
+          data: {
+            ...(shouldUpdateBonusLifeFlag ? { bonusLifeGranted: true } : {}),
+            ...(shouldUpdateBonusXpFlag ? { bonusXpGranted: true } : {}),
+          },
+        });
+      }
+
+      if (shouldCreateLessonReward && lessonKey) {
+        await tx.userLessonReward.create({
+          data: {
+            userId,
+            lesson: lessonKey,
+          },
+        });
+      }
+
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          xpPoints,
+          batutaPoints,
+          lifePoints,
+          elo: toPrismaElo(elo) ?? Elo.FERRO,
+          progressLevel,
+        },
+      });
+
+      return updatedUser;
     });
   }
 

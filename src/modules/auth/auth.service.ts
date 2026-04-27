@@ -6,7 +6,7 @@ export class AuthService {
   constructor(private usersRepo = new UsersRepository()) {}
 
   async login(email: string, password: string) {
-    const user = await this.usersRepo.findByEmail(email);
+    const user = await this.usersRepo.findByEmailWithPassword(email);
 
     if (!user) {
       throw new AppError("Credenciais inválidas", 401, "INVALID_CREDENTIALS");
@@ -17,7 +17,6 @@ export class AuthService {
       throw new AppError("Credenciais inválidas", 401, "INVALID_CREDENTIALS");
     }
 
-    // retorna sem passwordHash
     return {
       id: user.id,
       name: user.name,
@@ -27,7 +26,7 @@ export class AuthService {
         batutaPoints: user.batutaPoints,
         xpPoints: user.xpPoints,
         elo: String(user.elo).toLowerCase(),
-        nivel: user.nivel,
+        progressLevel: user.progressLevel,
       },
     };
   }

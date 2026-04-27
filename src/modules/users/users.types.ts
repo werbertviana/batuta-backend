@@ -4,14 +4,15 @@ export type EloInput =
   | "prata"
   | "ouro"
   | "platina"
-  | "diamante";
+  | "diamante"
+  | "maestro";
 
 export type GameStatsInput = {
   lifePoints: number;
   batutaPoints: number;
   xpPoints: number;
   elo: EloInput;
-  nivel: string;
+  progressLevel: number;
 };
 
 export type CreateUserInput = {
@@ -33,4 +34,49 @@ export type UserResponse = {
   name: string;
   email: string;
   gameStats: GameStatsInput;
+};
+
+export type CompleteActivityInput = {
+  atividade: string;
+  acertos: number;
+  erros: number;
+  totalQuestoes: number;
+  puladas?: number;
+};
+
+export type ActivityReward = {
+  atividade: string;
+  aprovado: boolean;
+  perfect: boolean;
+  xpBaseGanho: number;
+  xpBonusGanho: number;
+  xpGanho: number;
+  puladas: number;
+  maxPuladas: number;
+  batutasGanhas: number;
+  subiuElo: boolean;
+  eloAnterior: EloInput;
+  eloAtual: EloInput;
+  batutasAntesDaPromocao: number;
+  batutasDepoisDaPromocao: number;
+  primeiraConclusao: boolean;
+  bonusVidaGanha: boolean;
+  bonusXpGanho: boolean;
+  lifePointsAntes: number;
+  lifePointsDepois: number;
+  lessonCompleted: boolean;
+  lessonRewardGranted: boolean;
+  lessonKey: string | null;
+  progressLevelAnterior: number;
+  progressLevelAtual: number;
+  subiuProgressLevel: boolean;
+};
+
+export type PreviewActivityResponse = {
+  reward: ActivityReward;
+};
+
+export type CompleteActivityResponse = {
+  user: UserResponse;
+  reward: ActivityReward;
 };

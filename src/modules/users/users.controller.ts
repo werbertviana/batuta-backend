@@ -9,6 +9,7 @@ const eloSchema = z.enum([
   "ouro",
   "platina",
   "diamante",
+  "maestro",
 ]);
 
 const gameStatsSchema = z
@@ -17,7 +18,7 @@ const gameStatsSchema = z
     batutaPoints: z.number().int().min(0).default(0),
     xpPoints: z.number().int().min(0).default(0),
     elo: eloSchema.default("ferro"),
-    nivel: z.string().min(1).default("1"),
+    progressLevel: z.number().int().min(1).default(1),
   })
   .partial();
 
@@ -33,6 +34,14 @@ const updateSchema = z.object({
   email: z.string().email().optional(),
   password: z.string().min(4).optional(),
   gameStats: gameStatsSchema.optional(),
+});
+
+const activitySchema = z.object({
+  atividade: z.string().min(1),
+  acertos: z.number().int().min(0),
+  erros: z.number().int().min(0),
+  puladas: z.number().int().min(0).optional(),
+  totalQuestoes: z.number().int().min(1),
 });
 
 export class UsersController {
@@ -78,12 +87,32 @@ export class UsersController {
     }
   };
 
+  previewActivity = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = Number(req.params.id);
+      const body = activitySchema.parse(req.body);
+      const result = await this.service.previewActivity(id, body);
+      return res.json(result);
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  completeActivity = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = Number(req.params.id);
+      const body = activitySchema.parse(req.body);
+      const result = await this.service.completeActivity(id, body);
+      return res.json(result);
+    } catch (err) {
+      return next(err);
+    }
+  };
+
   delete = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = Number(req.params.id);
       await this.service.deleteUser(id);
-
-      // ✅ 204 não tem body (correto REST). Se quiser JSON, troque pra 200.
       return res.status(204).send();
     } catch (err) {
       return next(err);
