@@ -18,17 +18,28 @@ enum Elo {
   MAESTRO
 }
 
-model User {
-  id            Int                  @id @default(autoincrement())
-  name          String
-  email         String               @unique
-  passwordHash  String
+enum Nivel {
+  FACIL
+  MEDIO
+  DIFICIL
+}
 
-  lifePoints    Int                  @default(3)
-  batutaPoints  Int                  @default(0)
-  xpPoints      Int                  @default(0)
-  elo           Elo                  @default(FERRO)
-  progressLevel Int                  @default(1)
+enum QuestionType {
+  TEXTO
+  FIGURA
+}
+
+model User {
+  id           Int    @id @default(autoincrement())
+  name         String
+  email        String @unique
+  passwordHash String
+
+  lifePoints    Int @default(3)
+  batutaPoints  Int @default(0)
+  xpPoints      Int @default(0)
+  elo           Elo @default(FERRO)
+  progressLevel Int @default(1)
 
   activityProgress UserActivityProgress[]
   lessonRewards    UserLessonReward[]
@@ -59,4 +70,113 @@ model UserLessonReward {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, lesson])
+}
+
+model Lesson {
+  id       Int     @id @default(autoincrement())
+  number   Int     @unique
+  slug     String  @unique
+  title    String
+  order    Int
+  isActive Boolean @default(true)
+
+  modules Module[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Module {
+  id            Int     @id @default(autoincrement())
+  lessonId      Int
+  title         String
+  icon          String?
+  contentKey    String?
+  practiceRoute String?
+  unlockLevel   Int
+  order         Int
+  isActive      Boolean @default(true)
+
+  lesson   Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  slides   ModuleSlide[]
+  activity Activity?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([lessonId, order])
+}
+
+model ModuleSlide {
+  id       Int     @id @default(autoincrement())
+  moduleId Int
+  image    String
+  video    String?
+  order    Int
+
+  module Module       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  audios SlideAudio[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([moduleId, order])
+}
+
+model SlideAudio {
+  id        Int    @id @default(autoincrement())
+  slideId   Int
+  audioName String
+  order     Int
+
+  slide ModuleSlide @relation(fields: [slideId], references: [id], onDelete: Cascade)
+
+  @@unique([slideId, order])
+}
+
+model Activity {
+  id       Int    @id @default(autoincrement())
+  moduleId Int    @unique
+  slug     String @unique
+  title    String
+  order    Int
+
+  module    Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  questions Question[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Question {
+  id         Int          @id @default(autoincrement())
+  activityId Int
+  statement  String
+  type       QuestionType
+  level      Nivel
+  elo        Elo
+  order      Int
+
+  activity Activity         @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  options  QuestionOption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([activityId, order])
+}
+
+model QuestionOption {
+  id         Int     @id @default(autoincrement())
+  questionId Int
+  label      String
+  text       String?
+  image      String?
+  isCorrect  Boolean @default(false)
+  order      Int
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, label])
+  @@unique([questionId, order])
 }
