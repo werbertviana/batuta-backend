@@ -32,8 +32,11 @@ enum QuestionType {
 model User {
   id           Int    @id @default(autoincrement())
   name         String
+  username     String @unique
   email        String @unique
   passwordHash String
+
+  avatarUrl String?
 
   lifePoints    Int @default(3)
   batutaPoints  Int @default(0)

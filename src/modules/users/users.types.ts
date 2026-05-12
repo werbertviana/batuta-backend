@@ -8,40 +8,50 @@ export type EloInput =
   | "maestro";
 
 export type GameStatsInput = {
-  lifePoints: number;
-  batutaPoints: number;
-  xpPoints: number;
-  elo: EloInput;
-  progressLevel: number;
+  lifePoints?: number;
+  batutaPoints?: number;
+  xpPoints?: number;
+  elo?: EloInput;
+  progressLevel?: number;
 };
 
 export type CreateUserInput = {
   name: string;
+  username: string;
   email: string;
   password: string;
-  gameStats?: Partial<GameStatsInput>;
+  gameStats?: GameStatsInput;
 };
 
 export type UpdateUserInput = {
   name?: string;
+  username?: string;
   email?: string;
   password?: string;
-  gameStats?: Partial<GameStatsInput>;
+  gameStats?: GameStatsInput;
 };
 
 export type UserResponse = {
   id: number;
   name: string;
+  username: string;
   email: string;
-  gameStats: GameStatsInput;
+  avatarUrl?: string | null;
+  gameStats: {
+    lifePoints: number;
+    batutaPoints: number;
+    xpPoints: number;
+    elo: EloInput;
+    progressLevel: number;
+  };
 };
 
 export type CompleteActivityInput = {
   atividade: string;
   acertos: number;
   erros: number;
-  totalQuestoes: number;
   puladas?: number;
+  totalQuestoes: number;
 };
 
 export type ActivityReward = {

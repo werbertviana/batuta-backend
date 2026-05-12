@@ -27,6 +27,7 @@ export class UsersRepository {
     return prisma.user.create({
       data: {
         name: data.name,
+        username: data.username,
         email: data.email,
         passwordHash,
         lifePoints: gs.lifePoints ?? 3,
@@ -42,8 +43,22 @@ export class UsersRepository {
     return prisma.user.findUnique({ where: { id } });
   }
 
+  async findByIdWithPassword(id: number) {
+    return prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        passwordHash: true,
+      },
+    });
+  }
+
   async findByEmail(email: string) {
     return prisma.user.findUnique({ where: { email } });
+  }
+
+  async findByUsername(username: string) {
+    return prisma.user.findUnique({ where: { username } });
   }
 
   async findByEmailWithPassword(email: string) {
@@ -52,7 +67,9 @@ export class UsersRepository {
       select: {
         id: true,
         name: true,
+        username: true,
         email: true,
+        avatarUrl: true,
         passwordHash: true,
         lifePoints: true,
         batutaPoints: true,
@@ -72,12 +89,19 @@ export class UsersRepository {
 
     const patch: Record<string, unknown> = {
       ...(data.name !== undefined ? { name: data.name } : {}),
+      ...(data.username !== undefined ? { username: data.username } : {}),
       ...(data.email !== undefined ? { email: data.email } : {}),
       ...(gs?.lifePoints !== undefined ? { lifePoints: gs.lifePoints } : {}),
-      ...(gs?.batutaPoints !== undefined ? { batutaPoints: gs.batutaPoints } : {}),
+      ...(gs?.batutaPoints !== undefined
+        ? { batutaPoints: gs.batutaPoints }
+        : {}),
       ...(gs?.xpPoints !== undefined ? { xpPoints: gs.xpPoints } : {}),
-      ...(gs?.elo !== undefined ? { elo: toPrismaElo(gs.elo) ?? Elo.FERRO } : {}),
-      ...(gs?.progressLevel !== undefined ? { progressLevel: gs.progressLevel } : {}),
+      ...(gs?.elo !== undefined
+        ? { elo: toPrismaElo(gs.elo) ?? Elo.FERRO }
+        : {}),
+      ...(gs?.progressLevel !== undefined
+        ? { progressLevel: gs.progressLevel }
+        : {}),
     };
 
     if (data.password !== undefined) {
@@ -87,6 +111,22 @@ export class UsersRepository {
     return prisma.user.update({
       where: { id },
       data: patch,
+    });
+  }
+
+  async updatePassword(id: number, password: string) {
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    return prisma.user.update({
+      where: { id },
+      data: { passwordHash },
+    });
+  }
+
+  async updateAvatar(id: number, avatarUrl: string | null) {
+    return prisma.user.update({
+      where: { id },
+      data: { avatarUrl },
     });
   }
 

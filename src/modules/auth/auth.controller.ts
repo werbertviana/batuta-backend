@@ -14,6 +14,7 @@ export class AuthController {
     try {
       const body = loginSchema.parse(req.body);
       const user = await this.service.login(body.email, body.password);
+
       return res.status(200).json(user);
     } catch (err) {
       return next(err);

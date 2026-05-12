@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { UsersService } from "./users.service";
+import { AppError } from "../../shared/errors";
 
 const eloSchema = z.enum([
   "ferro",
@@ -11,6 +12,15 @@ const eloSchema = z.enum([
   "diamante",
   "maestro",
 ]);
+
+const usernameSchema = z
+  .string()
+  .min(3, "Username deve ter no mínimo 3 caracteres")
+  .max(20, "Username deve ter no máximo 20 caracteres")
+  .regex(
+    /^(?!\.)(?!.*\.$)[a-zA-Z0-9._]+$/,
+    "Username deve conter apenas letras, números, ponto ou underline e não pode começar/terminar com ponto"
+  );
 
 const gameStatsSchema = z
   .object({
@@ -24,6 +34,7 @@ const gameStatsSchema = z
 
 const createSchema = z.object({
   name: z.string().min(2),
+  username: usernameSchema,
   email: z.string().email(),
   password: z.string().min(4),
   gameStats: gameStatsSchema.optional(),
@@ -31,9 +42,15 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
+  username: usernameSchema.optional(),
   email: z.string().email().optional(),
   password: z.string().min(4).optional(),
   gameStats: gameStatsSchema.optional(),
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Senha atual é obrigatória"),
+  newPassword: z.string().min(4, "Nova senha deve ter no mínimo 4 caracteres"),
 });
 
 const activitySchema = z.object({
@@ -81,6 +98,47 @@ export class UsersController {
       const id = Number(req.params.id);
       const body = updateSchema.parse(req.body);
       const user = await this.service.updateUser(id, body);
+      return res.json(user);
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  changePassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = Number(req.params.id);
+      const body = changePasswordSchema.parse(req.body);
+
+      await this.service.changePassword(id, body);
+
+      return res.status(204).send();
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  updateAvatar = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = Number(req.params.id);
+
+      if (!req.file) {
+        throw new AppError("Avatar image is required", 400, "AVATAR_REQUIRED");
+      }
+
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      const user = await this.service.updateAvatar(id, avatarUrl);
+
+      return res.json(user);
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  removeAvatar = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = Number(req.params.id);
+      const user = await this.service.removeAvatar(id);
+
       return res.json(user);
     } catch (err) {
       return next(err);

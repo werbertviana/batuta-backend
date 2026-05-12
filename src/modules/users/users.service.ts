@@ -1,3 +1,6 @@
+import bcrypt from "bcrypt";
+import fs from "fs/promises";
+import path from "path";
 import { Prisma } from "@prisma/client";
 import { AppError, NotFoundError } from "../../shared/errors";
 import { UsersRepository } from "./users.repository";
@@ -11,6 +14,11 @@ import type {
   PreviewActivityResponse,
   ActivityReward,
 } from "./users.types";
+
+type ChangePasswordInput = {
+  currentPassword: string;
+  newPassword: string;
+};
 
 function toEloInput(value: unknown): EloInput {
   const v = String(value).toLowerCase();
@@ -26,11 +34,21 @@ function toEloInput(value: unknown): EloInput {
   return "ferro";
 }
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function normalizeUsername(username: string): string {
+  return username.trim().toLowerCase();
+}
+
 function toResponse(u: any): UserResponse {
   return {
     id: u.id,
     name: u.name,
+    username: u.username,
     email: u.email,
+    avatarUrl: u.avatarUrl ?? null,
     gameStats: {
       lifePoints: u.lifePoints,
       batutaPoints: u.batutaPoints,
@@ -47,6 +65,32 @@ function isPrismaKnownError(
   return err instanceof Prisma.PrismaClientKnownRequestError;
 }
 
+function avatarUrlToFilePath(avatarUrl: string): string | null {
+  if (!avatarUrl.startsWith("/uploads/avatars/")) {
+    return null;
+  }
+
+  const fileName = path.basename(avatarUrl);
+
+  return path.resolve(process.cwd(), "uploads", "avatars", fileName);
+}
+
+async function safelyDeleteAvatarFile(avatarUrl?: string | null) {
+  if (!avatarUrl) return;
+
+  const filePath = avatarUrlToFilePath(avatarUrl);
+
+  if (!filePath) return;
+
+  try {
+    await fs.unlink(filePath);
+  } catch (err: any) {
+    if (err?.code !== "ENOENT") {
+      console.log("ERRO AO REMOVER ARQUIVO DE AVATAR:", err);
+    }
+  }
+}
+
 const ELO_ORDER: EloInput[] = [
   "ferro",
   "bronze",
@@ -57,8 +101,44 @@ const ELO_ORDER: EloInput[] = [
   "maestro",
 ];
 
-const DEFAULT_BATUTA_COST = 2;
 const MAX_SKIPS_PER_ACTIVITY = 2;
+
+const ELO_REQUIREMENTS: Record<
+  EloInput,
+  {
+    requiredXp: number;
+    requiredBatutas: number;
+  }
+> = {
+  ferro: {
+    requiredXp: 0,
+    requiredBatutas: 0,
+  },
+  bronze: {
+    requiredXp: 16,
+    requiredBatutas: 2,
+  },
+  prata: {
+    requiredXp: 32,
+    requiredBatutas: 2,
+  },
+  ouro: {
+    requiredXp: 54,
+    requiredBatutas: 2,
+  },
+  platina: {
+    requiredXp: 78,
+    requiredBatutas: 2,
+  },
+  diamante: {
+    requiredXp: 108,
+    requiredBatutas: 2,
+  },
+  maestro: {
+    requiredXp: 144,
+    requiredBatutas: 2,
+  },
+};
 
 const LESSON_ACTIVITY_MAP: Record<string, string[]> = {
   "lesson-1": [
@@ -162,51 +242,67 @@ function calculateSimpleActivityReward(args: {
   };
 }
 
-function getBatutasRequiredForNextElo(currentElo: EloInput): number {
-  if (currentElo === "maestro") {
-    return Number.POSITIVE_INFINITY;
+function getNextElo(currentElo: EloInput): EloInput | null {
+  const currentIndex = ELO_ORDER.indexOf(currentElo);
+  const nextIndex = currentIndex + 1;
+
+  if (currentIndex < 0 || nextIndex >= ELO_ORDER.length) {
+    return null;
   }
 
-  return DEFAULT_BATUTA_COST;
+  return ELO_ORDER[nextIndex];
 }
 
-function promoteEloWithConsumption(
-  eloAtual: EloInput,
-  batutaPoints: number
-): {
+function promoteEloWithConsumption(args: {
+  eloAtual: EloInput;
+  batutaPoints: number;
+  xpPoints: number;
+}): {
   eloNovo: EloInput;
   batutasRestantes: number;
   subiuElo: boolean;
   batutasConsumidas: number;
+  xpNecessario: number;
+  batutasNecessarias: number;
 } {
-  if (eloAtual === "maestro") {
+  const { eloAtual, batutaPoints, xpPoints } = args;
+
+  const nextElo = getNextElo(eloAtual);
+
+  if (!nextElo) {
     return {
       eloNovo: eloAtual,
       batutasRestantes: batutaPoints,
       subiuElo: false,
       batutasConsumidas: 0,
+      xpNecessario: 0,
+      batutasNecessarias: 0,
     };
   }
 
-  const required = getBatutasRequiredForNextElo(eloAtual);
+  const requirement = ELO_REQUIREMENTS[nextElo];
 
-  if (batutaPoints < required) {
+  const hasRequiredBatutas = batutaPoints >= requirement.requiredBatutas;
+  const hasRequiredXp = xpPoints >= requirement.requiredXp;
+
+  if (!hasRequiredBatutas || !hasRequiredXp) {
     return {
       eloNovo: eloAtual,
       batutasRestantes: batutaPoints,
       subiuElo: false,
       batutasConsumidas: 0,
+      xpNecessario: requirement.requiredXp,
+      batutasNecessarias: requirement.requiredBatutas,
     };
   }
-
-  const currentIndex = ELO_ORDER.indexOf(eloAtual);
-  const nextIndex = Math.min(currentIndex + 1, ELO_ORDER.length - 1);
 
   return {
-    eloNovo: ELO_ORDER[nextIndex],
-    batutasRestantes: batutaPoints - required,
+    eloNovo: nextElo,
+    batutasRestantes: batutaPoints - requirement.requiredBatutas,
     subiuElo: true,
-    batutasConsumidas: required,
+    batutasConsumidas: requirement.requiredBatutas,
+    xpNecessario: requirement.requiredXp,
+    batutasNecessarias: requirement.requiredBatutas,
   };
 }
 
@@ -232,18 +328,42 @@ export class UsersService {
   constructor(private repo = new UsersRepository()) {}
 
   async createUser(input: CreateUserInput): Promise<UserResponse> {
-    const existing = await this.repo.findByEmail(input.email);
-    if (existing) {
+    const normalizedInput: CreateUserInput = {
+      ...input,
+      email: normalizeEmail(input.email),
+      username: normalizeUsername(input.username),
+    };
+
+    const existingEmail = await this.repo.findByEmail(normalizedInput.email);
+
+    if (existingEmail) {
       throw new AppError("E-mail already in use", 409, "EMAIL_ALREADY_EXISTS");
     }
 
+    const existingUsername = await this.repo.findByUsername(
+      normalizedInput.username
+    );
+
+    if (existingUsername) {
+      throw new AppError(
+        "Username already in use",
+        409,
+        "USERNAME_ALREADY_EXISTS"
+      );
+    }
+
     try {
-      const user = await this.repo.create(input);
+      const user = await this.repo.create(normalizedInput);
       return toResponse(user);
     } catch (err) {
       if (isPrismaKnownError(err) && err.code === "P2002") {
-        throw new AppError("E-mail already in use", 409, "EMAIL_ALREADY_EXISTS");
+        throw new AppError(
+          "E-mail or username already in use",
+          409,
+          "USER_UNIQUE_CONSTRAINT"
+        );
       }
+
       throw err;
     }
   }
@@ -255,6 +375,7 @@ export class UsersService {
 
   async getUser(id: number): Promise<UserResponse> {
     const user = await this.repo.findById(id);
+
     if (!user) {
       throw new NotFoundError("User not found", "USER_NOT_FOUND");
     }
@@ -264,26 +385,125 @@ export class UsersService {
 
   async updateUser(id: number, input: UpdateUserInput): Promise<UserResponse> {
     const exists = await this.repo.findById(id);
+
     if (!exists) {
       throw new NotFoundError("User not found", "USER_NOT_FOUND");
     }
 
-    if (input.email) {
-      const sameEmail = await this.repo.findByEmail(input.email);
+    const normalizedInput: UpdateUserInput = {
+      ...input,
+      ...(input.email !== undefined
+        ? { email: normalizeEmail(input.email) }
+        : {}),
+      ...(input.username !== undefined
+        ? { username: normalizeUsername(input.username) }
+        : {}),
+    };
+
+    if (normalizedInput.email) {
+      const sameEmail = await this.repo.findByEmail(normalizedInput.email);
+
       if (sameEmail && sameEmail.id !== id) {
         throw new AppError("E-mail already in use", 409, "EMAIL_ALREADY_EXISTS");
       }
     }
 
+    if (normalizedInput.username) {
+      const sameUsername = await this.repo.findByUsername(
+        normalizedInput.username
+      );
+
+      if (sameUsername && sameUsername.id !== id) {
+        throw new AppError(
+          "Username already in use",
+          409,
+          "USERNAME_ALREADY_EXISTS"
+        );
+      }
+    }
+
     try {
-      const user = await this.repo.update(id, input);
+      const user = await this.repo.update(id, normalizedInput);
       return toResponse(user);
     } catch (err) {
       if (isPrismaKnownError(err) && err.code === "P2002") {
-        throw new AppError("E-mail already in use", 409, "EMAIL_ALREADY_EXISTS");
+        throw new AppError(
+          "E-mail or username already in use",
+          409,
+          "USER_UNIQUE_CONSTRAINT"
+        );
       }
+
       throw err;
     }
+  }
+
+  async changePassword(
+    id: number,
+    input: ChangePasswordInput
+  ): Promise<void> {
+    const user = await this.repo.findByIdWithPassword(id);
+
+    if (!user) {
+      throw new NotFoundError("User not found", "USER_NOT_FOUND");
+    }
+
+    const currentPasswordMatches = await bcrypt.compare(
+      input.currentPassword,
+      user.passwordHash
+    );
+
+    if (!currentPasswordMatches) {
+      throw new AppError(
+        "Senha atual incorreta",
+        400,
+        "CURRENT_PASSWORD_INVALID"
+      );
+    }
+
+    const newPasswordIsSameAsCurrent = await bcrypt.compare(
+      input.newPassword,
+      user.passwordHash
+    );
+
+    if (newPasswordIsSameAsCurrent) {
+      throw new AppError(
+        "A nova senha não pode ser igual à senha atual",
+        400,
+        "SAME_PASSWORD"
+      );
+    }
+
+    await this.repo.updatePassword(id, input.newPassword);
+  }
+
+  async updateAvatar(id: number, avatarUrl: string): Promise<UserResponse> {
+    const exists = await this.repo.findById(id);
+
+    if (!exists) {
+      await safelyDeleteAvatarFile(avatarUrl);
+      throw new NotFoundError("User not found", "USER_NOT_FOUND");
+    }
+
+    await safelyDeleteAvatarFile(exists.avatarUrl);
+
+    const user = await this.repo.updateAvatar(id, avatarUrl);
+
+    return toResponse(user);
+  }
+
+  async removeAvatar(id: number): Promise<UserResponse> {
+    const exists = await this.repo.findById(id);
+
+    if (!exists) {
+      throw new NotFoundError("User not found", "USER_NOT_FOUND");
+    }
+
+    await safelyDeleteAvatarFile(exists.avatarUrl);
+
+    const user = await this.repo.updateAvatar(id, null);
+
+    return toResponse(user);
   }
 
   private async resolveActivityOutcome(
@@ -340,6 +560,7 @@ export class UsersService {
       !activityProgress.bonusXpGranted;
 
     const xpTotal = xpAnterior + xpGanho;
+
     const lifePointsDepois = bonusVidaGanha
       ? lifePointsAntes + 1
       : lifePointsAntes;
@@ -353,8 +574,6 @@ export class UsersService {
     const progressLevelAtual = primeiraConclusao
       ? progressLevelAnterior + 1
       : progressLevelAnterior;
-
-    const subiuProgressLevel = progressLevelAtual !== progressLevelAnterior;
 
     if (primeiraConclusao && lessonKey) {
       const lessonActivities = getLessonActivities(lessonKey);
@@ -380,10 +599,11 @@ export class UsersService {
 
     const batutasAntesDaPromocao = batutasAnteriores + batutasGanhas;
 
-    const promotionResult = promoteEloWithConsumption(
-      eloAnterior,
-      batutasAntesDaPromocao
-    );
+    const promotionResult = promoteEloWithConsumption({
+      eloAtual: eloAnterior,
+      batutaPoints: batutasAntesDaPromocao,
+      xpPoints: xpTotal,
+    });
 
     const eloAtual = promotionResult.eloNovo;
     const batutasDepoisDaPromocao = promotionResult.batutasRestantes;
@@ -414,7 +634,7 @@ export class UsersService {
       lessonKey,
       progressLevelAnterior,
       progressLevelAtual,
-      subiuProgressLevel,
+      subiuProgressLevel: progressLevelAtual !== progressLevelAnterior,
     };
 
     return {
@@ -441,6 +661,7 @@ export class UsersService {
     input: CompleteActivityInput
   ): Promise<PreviewActivityResponse> {
     const { reward } = await this.resolveActivityOutcome(id, input);
+
     return { reward };
   }
 
@@ -475,9 +696,12 @@ export class UsersService {
 
   async deleteUser(id: number): Promise<void> {
     const exists = await this.repo.findById(id);
+
     if (!exists) {
       throw new NotFoundError("User not found", "USER_NOT_FOUND");
     }
+
+    await safelyDeleteAvatarFile(exists.avatarUrl);
 
     await this.repo.delete(id);
   }
