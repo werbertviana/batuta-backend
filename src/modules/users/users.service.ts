@@ -20,6 +20,10 @@ type ChangePasswordInput = {
   newPassword: string;
 };
 
+type DeleteUserInput = {
+  currentPassword: string;
+};
+
 function toEloInput(value: unknown): EloInput {
   const v = String(value).toLowerCase();
 
@@ -60,7 +64,7 @@ function toResponse(u: any): UserResponse {
 }
 
 function isPrismaKnownError(
-  err: unknown
+  err: unknown,
 ): err is Prisma.PrismaClientKnownRequestError {
   return err instanceof Prisma.PrismaClientKnownRequestError;
 }
@@ -164,7 +168,7 @@ function resolveLessonKeyByActivity(atividade: string): string | null {
 
   for (const [lessonKey, atividades] of Object.entries(LESSON_ACTIVITY_MAP)) {
     const found = atividades.some(
-      (item) => normalizeActivityName(item) === normalized
+      (item) => normalizeActivityName(item) === normalized,
     );
 
     if (found) {
@@ -180,7 +184,7 @@ function getLessonActivities(lessonKey: string): string[] {
 }
 
 function normalizeActivityInput(
-  input: CompleteActivityInput
+  input: CompleteActivityInput,
 ): Required<CompleteActivityInput> {
   const puladas =
     input.puladas === undefined
@@ -191,7 +195,7 @@ function normalizeActivityInput(
     throw new AppError(
       "Quantidade de acertos e erros maior que o total de questões",
       400,
-      "INVALID_ACTIVITY_TOTAL"
+      "INVALID_ACTIVITY_TOTAL",
     );
   }
 
@@ -199,7 +203,7 @@ function normalizeActivityInput(
     throw new AppError(
       `Limite de ${MAX_SKIPS_PER_ACTIVITY} pulos por atividade excedido`,
       400,
-      "MAX_SKIPS_EXCEEDED"
+      "MAX_SKIPS_EXCEEDED",
     );
   }
 
@@ -209,7 +213,7 @@ function normalizeActivityInput(
     throw new AppError(
       "A soma de acertos, erros e puladas deve ser igual ao total de questões",
       400,
-      "ACTIVITY_TOTAL_MISMATCH"
+      "ACTIVITY_TOTAL_MISMATCH",
     );
   }
 
@@ -341,14 +345,14 @@ export class UsersService {
     }
 
     const existingUsername = await this.repo.findByUsername(
-      normalizedInput.username
+      normalizedInput.username,
     );
 
     if (existingUsername) {
       throw new AppError(
         "Username already in use",
         409,
-        "USERNAME_ALREADY_EXISTS"
+        "USERNAME_ALREADY_EXISTS",
       );
     }
 
@@ -360,7 +364,7 @@ export class UsersService {
         throw new AppError(
           "E-mail or username already in use",
           409,
-          "USER_UNIQUE_CONSTRAINT"
+          "USER_UNIQUE_CONSTRAINT",
         );
       }
 
@@ -410,14 +414,14 @@ export class UsersService {
 
     if (normalizedInput.username) {
       const sameUsername = await this.repo.findByUsername(
-        normalizedInput.username
+        normalizedInput.username,
       );
 
       if (sameUsername && sameUsername.id !== id) {
         throw new AppError(
           "Username already in use",
           409,
-          "USERNAME_ALREADY_EXISTS"
+          "USERNAME_ALREADY_EXISTS",
         );
       }
     }
@@ -430,7 +434,7 @@ export class UsersService {
         throw new AppError(
           "E-mail or username already in use",
           409,
-          "USER_UNIQUE_CONSTRAINT"
+          "USER_UNIQUE_CONSTRAINT",
         );
       }
 
@@ -438,10 +442,7 @@ export class UsersService {
     }
   }
 
-  async changePassword(
-    id: number,
-    input: ChangePasswordInput
-  ): Promise<void> {
+  async changePassword(id: number, input: ChangePasswordInput): Promise<void> {
     const user = await this.repo.findByIdWithPassword(id);
 
     if (!user) {
@@ -450,27 +451,27 @@ export class UsersService {
 
     const currentPasswordMatches = await bcrypt.compare(
       input.currentPassword,
-      user.passwordHash
+      user.passwordHash,
     );
 
     if (!currentPasswordMatches) {
       throw new AppError(
         "Senha atual incorreta",
         400,
-        "CURRENT_PASSWORD_INVALID"
+        "CURRENT_PASSWORD_INVALID",
       );
     }
 
     const newPasswordIsSameAsCurrent = await bcrypt.compare(
       input.newPassword,
-      user.passwordHash
+      user.passwordHash,
     );
 
     if (newPasswordIsSameAsCurrent) {
       throw new AppError(
         "A nova senha não pode ser igual à senha atual",
         400,
-        "SAME_PASSWORD"
+        "SAME_PASSWORD",
       );
     }
 
@@ -508,7 +509,7 @@ export class UsersService {
 
   private async resolveActivityOutcome(
     id: number,
-    input: CompleteActivityInput
+    input: CompleteActivityInput,
   ): Promise<ActivityResolution> {
     const normalizedInput = normalizeActivityInput(input);
 
@@ -526,7 +527,7 @@ export class UsersService {
 
     const activityProgress = await this.repo.findActivityProgress(
       id,
-      normalizedInput.atividade
+      normalizedInput.atividade,
     );
 
     const bonusXpAvailable =
@@ -587,7 +588,7 @@ export class UsersService {
       if (lessonCompleted) {
         const existingLessonReward = await this.repo.findLessonReward(
           id,
-          lessonKey
+          lessonKey,
         );
 
         if (!existingLessonReward) {
@@ -658,7 +659,7 @@ export class UsersService {
 
   async previewActivity(
     id: number,
-    input: CompleteActivityInput
+    input: CompleteActivityInput,
   ): Promise<PreviewActivityResponse> {
     const { reward } = await this.resolveActivityOutcome(id, input);
 
@@ -667,7 +668,7 @@ export class UsersService {
 
   async completeActivity(
     id: number,
-    input: CompleteActivityInput
+    input: CompleteActivityInput,
   ): Promise<CompleteActivityResponse> {
     const { reward, persistence } = await this.resolveActivityOutcome(id, input);
 
@@ -694,11 +695,28 @@ export class UsersService {
     };
   }
 
-  async deleteUser(id: number): Promise<void> {
-    const exists = await this.repo.findById(id);
+  async deleteUser(id: number, input: DeleteUserInput): Promise<void> {
+    const exists = await this.repo.findByIdWithPassword(id);
 
     if (!exists) {
       throw new NotFoundError("User not found", "USER_NOT_FOUND");
+    }
+
+    if (!input.currentPassword?.trim()) {
+      throw new AppError("Senha atual é obrigatória", 400, "PASSWORD_REQUIRED");
+    }
+
+    const passwordMatches = await bcrypt.compare(
+      input.currentPassword,
+      exists.passwordHash,
+    );
+
+    if (!passwordMatches) {
+      throw new AppError(
+        "Senha atual incorreta",
+        401,
+        "CURRENT_PASSWORD_INVALID",
+      );
     }
 
     await safelyDeleteAvatarFile(exists.avatarUrl);

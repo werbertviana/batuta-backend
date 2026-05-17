@@ -53,6 +53,19 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(4, "Nova senha deve ter no mínimo 4 caracteres"),
 });
 
+const deleteAccountSchema = z
+  .object({
+    password: z.string().optional(),
+    currentPassword: z.string().optional(),
+  })
+  .transform((data) => ({
+    currentPassword: data.currentPassword || data.password || "",
+  }))
+  .refine((data) => data.currentPassword.trim().length > 0, {
+    message: "Senha atual é obrigatória",
+    path: ["currentPassword"],
+  });
+
 const activitySchema = z.object({
   atividade: z.string().min(1),
   acertos: z.number().int().min(0),
@@ -170,7 +183,10 @@ export class UsersController {
   delete = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = Number(req.params.id);
-      await this.service.deleteUser(id);
+      const body = deleteAccountSchema.parse(req.body);
+
+      await this.service.deleteUser(id, body);
+
       return res.status(204).send();
     } catch (err) {
       return next(err);

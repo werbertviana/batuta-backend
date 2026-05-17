@@ -49,6 +49,7 @@ export class UsersRepository {
       select: {
         id: true,
         passwordHash: true,
+        avatarUrl: true,
       },
     });
   }
