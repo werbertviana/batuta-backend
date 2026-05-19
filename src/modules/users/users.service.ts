@@ -1,7 +1,8 @@
 import bcrypt from "bcrypt";
 import fs from "fs/promises";
 import path from "path";
-import { Prisma } from "@prisma/client";
+import { AuthProvider, Prisma } from "@prisma/client";
+import { OAuth2Client } from "google-auth-library";
 import { AppError, NotFoundError } from "../../shared/errors";
 import { UsersRepository } from "./users.repository";
 import type {
@@ -13,16 +14,14 @@ import type {
   CompleteActivityResponse,
   PreviewActivityResponse,
   ActivityReward,
+  SetPasswordInput,
+  ChangePasswordInput,
+  DeleteUserInput,
 } from "./users.types";
 
-type ChangePasswordInput = {
-  currentPassword: string;
-  newPassword: string;
-};
-
-type DeleteUserInput = {
-  currentPassword: string;
-};
+function getGoogleClient() {
+  return new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+}
 
 function toEloInput(value: unknown): EloInput {
   const v = String(value).toLowerCase();
@@ -53,6 +52,8 @@ function toResponse(u: any): UserResponse {
     username: u.username,
     email: u.email,
     avatarUrl: u.avatarUrl ?? null,
+    authProvider: u.authProvider === AuthProvider.GOOGLE ? "google" : "local",
+    hasPassword: Boolean(u.passwordHash),
     gameStats: {
       lifePoints: u.lifePoints,
       batutaPoints: u.batutaPoints,
@@ -70,12 +71,9 @@ function isPrismaKnownError(
 }
 
 function avatarUrlToFilePath(avatarUrl: string): string | null {
-  if (!avatarUrl.startsWith("/uploads/avatars/")) {
-    return null;
-  }
+  if (!avatarUrl.startsWith("/uploads/avatars/")) return null;
 
   const fileName = path.basename(avatarUrl);
-
   return path.resolve(process.cwd(), "uploads", "avatars", fileName);
 }
 
@@ -107,41 +105,14 @@ const ELO_ORDER: EloInput[] = [
 
 const MAX_SKIPS_PER_ACTIVITY = 2;
 
-const ELO_REQUIREMENTS: Record<
-  EloInput,
-  {
-    requiredXp: number;
-    requiredBatutas: number;
-  }
-> = {
-  ferro: {
-    requiredXp: 0,
-    requiredBatutas: 0,
-  },
-  bronze: {
-    requiredXp: 16,
-    requiredBatutas: 2,
-  },
-  prata: {
-    requiredXp: 32,
-    requiredBatutas: 2,
-  },
-  ouro: {
-    requiredXp: 54,
-    requiredBatutas: 2,
-  },
-  platina: {
-    requiredXp: 78,
-    requiredBatutas: 2,
-  },
-  diamante: {
-    requiredXp: 108,
-    requiredBatutas: 2,
-  },
-  maestro: {
-    requiredXp: 144,
-    requiredBatutas: 2,
-  },
+const ELO_REQUIREMENTS: Record<EloInput, { requiredXp: number; requiredBatutas: number }> = {
+  ferro: { requiredXp: 0, requiredBatutas: 0 },
+  bronze: { requiredXp: 16, requiredBatutas: 2 },
+  prata: { requiredXp: 32, requiredBatutas: 2 },
+  ouro: { requiredXp: 54, requiredBatutas: 2 },
+  platina: { requiredXp: 78, requiredBatutas: 2 },
+  diamante: { requiredXp: 108, requiredBatutas: 2 },
+  maestro: { requiredXp: 144, requiredBatutas: 2 },
 };
 
 const LESSON_ACTIVITY_MAP: Record<string, string[]> = {
@@ -171,9 +142,7 @@ function resolveLessonKeyByActivity(atividade: string): string | null {
       (item) => normalizeActivityName(item) === normalized,
     );
 
-    if (found) {
-      return lessonKey;
-    }
+    if (found) return lessonKey;
   }
 
   return null;
@@ -217,10 +186,7 @@ function normalizeActivityInput(
     );
   }
 
-  return {
-    ...input,
-    puladas,
-  };
+  return { ...input, puladas };
 }
 
 function calculateSimpleActivityReward(args: {
@@ -250,9 +216,7 @@ function getNextElo(currentElo: EloInput): EloInput | null {
   const currentIndex = ELO_ORDER.indexOf(currentElo);
   const nextIndex = currentIndex + 1;
 
-  if (currentIndex < 0 || nextIndex >= ELO_ORDER.length) {
-    return null;
-  }
+  if (currentIndex < 0 || nextIndex >= ELO_ORDER.length) return null;
 
   return ELO_ORDER[nextIndex];
 }
@@ -270,7 +234,6 @@ function promoteEloWithConsumption(args: {
   batutasNecessarias: number;
 } {
   const { eloAtual, batutaPoints, xpPoints } = args;
-
   const nextElo = getNextElo(eloAtual);
 
   if (!nextElo) {
@@ -330,6 +293,66 @@ type ActivityResolution = {
 
 export class UsersService {
   constructor(private repo = new UsersRepository()) {}
+
+  private async verifyGoogleDeleteToken(args: {
+    userEmail: string;
+    userGoogleId?: string | null;
+    googleIdToken: string;
+  }) {
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      throw new AppError(
+        "GOOGLE_CLIENT_ID não configurado",
+        500,
+        "GOOGLE_CLIENT_ID_NOT_CONFIGURED",
+      );
+    }
+
+    try {
+      const googleClient = getGoogleClient();
+
+      const ticket = await googleClient.verifyIdToken({
+        idToken: args.googleIdToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+
+      const payload = ticket.getPayload();
+
+      if (!payload?.email || !payload?.sub) {
+        throw new AppError("Token Google inválido", 401, "INVALID_GOOGLE_TOKEN");
+      }
+
+      if (payload.email_verified === false) {
+        throw new AppError(
+          "E-mail Google não verificado",
+          401,
+          "GOOGLE_EMAIL_NOT_VERIFIED",
+        );
+      }
+
+      const tokenEmail = normalizeEmail(payload.email);
+      const userEmail = normalizeEmail(args.userEmail);
+
+      if (tokenEmail !== userEmail) {
+        throw new AppError(
+          "A conta Google selecionada não corresponde ao usuário logado",
+          401,
+          "GOOGLE_ACCOUNT_MISMATCH",
+        );
+      }
+
+      if (args.userGoogleId && payload.sub !== args.userGoogleId) {
+        throw new AppError(
+          "A conta Google selecionada não corresponde ao usuário logado",
+          401,
+          "GOOGLE_ACCOUNT_MISMATCH",
+        );
+      }
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+
+      throw new AppError("Token Google inválido", 401, "INVALID_GOOGLE_TOKEN");
+    }
+  }
 
   async createUser(input: CreateUserInput): Promise<UserResponse> {
     const normalizedInput: CreateUserInput = {
@@ -442,11 +465,37 @@ export class UsersService {
     }
   }
 
+  async setPassword(id: number, input: SetPasswordInput): Promise<void> {
+    const user = await this.repo.findByIdWithPassword(id);
+
+    if (!user) {
+      throw new NotFoundError("User not found", "USER_NOT_FOUND");
+    }
+
+    if (user.passwordHash) {
+      throw new AppError(
+        "Essa conta já possui senha. Use a opção de alterar senha.",
+        400,
+        "PASSWORD_ALREADY_SET",
+      );
+    }
+
+    await this.repo.updatePassword(id, input.newPassword);
+  }
+
   async changePassword(id: number, input: ChangePasswordInput): Promise<void> {
     const user = await this.repo.findByIdWithPassword(id);
 
     if (!user) {
       throw new NotFoundError("User not found", "USER_NOT_FOUND");
+    }
+
+    if (!user.passwordHash) {
+      throw new AppError(
+        "Essa conta foi criada com Google. Defina uma senha antes de alterar a senha.",
+        400,
+        "PASSWORD_NOT_SET",
+      );
     }
 
     const currentPasswordMatches = await bcrypt.compare(
@@ -696,18 +745,53 @@ export class UsersService {
   }
 
   async deleteUser(id: number, input: DeleteUserInput): Promise<void> {
-    const exists = await this.repo.findByIdWithPassword(id);
+    const exists = await this.repo.findById(id);
 
     if (!exists) {
       throw new NotFoundError("User not found", "USER_NOT_FOUND");
     }
 
-    if (!input.currentPassword?.trim()) {
-      throw new AppError("Senha atual é obrigatória", 400, "PASSWORD_REQUIRED");
+    const currentPassword = input.currentPassword || input.password || "";
+    const googleIdToken = input.googleIdToken || "";
+
+    if (googleIdToken.trim()) {
+      if (exists.authProvider !== AuthProvider.GOOGLE && !exists.googleId) {
+        throw new AppError(
+          "Essa conta não está vinculada ao Google",
+          400,
+          "GOOGLE_DELETE_NOT_ALLOWED",
+        );
+      }
+
+      await this.verifyGoogleDeleteToken({
+        userEmail: exists.email,
+        userGoogleId: exists.googleId,
+        googleIdToken,
+      });
+
+      await safelyDeleteAvatarFile(exists.avatarUrl);
+      await this.repo.delete(id);
+      return;
+    }
+
+    if (!currentPassword.trim()) {
+      throw new AppError(
+        "Senha atual ou confirmação com Google é obrigatória",
+        400,
+        "PASSWORD_OR_GOOGLE_REQUIRED",
+      );
+    }
+
+    if (!exists.passwordHash) {
+      throw new AppError(
+        "Essa conta foi criada com Google. Confirme a exclusão usando Google.",
+        400,
+        "GOOGLE_ACCOUNT_USE_GOOGLE_DELETE",
+      );
     }
 
     const passwordMatches = await bcrypt.compare(
-      input.currentPassword,
+      currentPassword,
       exists.passwordHash,
     );
 
@@ -720,7 +804,6 @@ export class UsersService {
     }
 
     await safelyDeleteAvatarFile(exists.avatarUrl);
-
     await this.repo.delete(id);
   }
 }

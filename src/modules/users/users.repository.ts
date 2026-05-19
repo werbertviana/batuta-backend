@@ -1,7 +1,23 @@
 import bcrypt from "bcrypt";
-import { Elo, Prisma } from "@prisma/client";
+import { AuthProvider, Elo, Prisma } from "@prisma/client";
 import { prisma } from "../../shared/prisma";
 import type { CreateUserInput, UpdateUserInput } from "./users.types";
+
+const USER_SELECT_WITH_AUTH = {
+  id: true,
+  name: true,
+  username: true,
+  email: true,
+  avatarUrl: true,
+  passwordHash: true,
+  authProvider: true,
+  googleId: true,
+  lifePoints: true,
+  batutaPoints: true,
+  xpPoints: true,
+  elo: true,
+  progressLevel: true,
+};
 
 function toPrismaElo(elo?: string): Elo | undefined {
   if (!elo) return undefined;
@@ -19,23 +35,130 @@ function toPrismaElo(elo?: string): Elo | undefined {
   return Elo.FERRO;
 }
 
+function removeAccents(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeUsername(value: string) {
+  return removeAccents(value)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, ".")
+    .replace(/\.+/g, ".")
+    .replace(/^\.+|\.+$/g, "")
+    .slice(0, 32);
+}
+
+function buildUsernameBaseFromNameOrEmail(name: string, email: string) {
+  const cleanName = removeAccents(name || "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  const nameParts = cleanName
+    .split(" ")
+    .map((part) => normalizeUsername(part))
+    .filter(Boolean);
+
+  if (nameParts.length >= 2) {
+    const firstName = nameParts[0];
+    const lastName = nameParts[nameParts.length - 1];
+
+    return normalizeUsername(`${firstName}.${lastName}`);
+  }
+
+  if (nameParts.length === 1) {
+    return normalizeUsername(nameParts[0]);
+  }
+
+  const emailPrefix = email.split("@")[0] || "usuario";
+
+  return normalizeUsername(emailPrefix) || "usuario";
+}
+
+async function buildUniqueUsername(base: string) {
+  const safeBase = normalizeUsername(base) || "usuario";
+
+  const existingBase = await prisma.user.findUnique({
+    where: { username: safeBase },
+    select: { id: true },
+  });
+
+  if (!existingBase) {
+    return safeBase;
+  }
+
+  for (let index = 1; index <= 100; index += 1) {
+    const candidate = `${safeBase}${index}`;
+
+    const existing = await prisma.user.findUnique({
+      where: { username: candidate },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return candidate;
+    }
+  }
+
+  return `${safeBase}.${Date.now()}`;
+}
+
 export class UsersRepository {
   async create(data: CreateUserInput) {
     const gs = data.gameStats ?? {};
+    const normalizedEmail = data.email.trim().toLowerCase();
     const passwordHash = await bcrypt.hash(data.password, 10);
 
     return prisma.user.create({
       data: {
-        name: data.name,
-        username: data.username,
-        email: data.email,
+        name: data.name.trim(),
+        username: normalizeUsername(data.username),
+        email: normalizedEmail,
         passwordHash,
+        authProvider: AuthProvider.LOCAL,
         lifePoints: gs.lifePoints ?? 3,
         batutaPoints: gs.batutaPoints ?? 0,
         xpPoints: gs.xpPoints ?? 0,
         elo: toPrismaElo(gs.elo) ?? Elo.FERRO,
         progressLevel: gs.progressLevel ?? 1,
       },
+    });
+  }
+
+  async createGoogleUser(data: {
+    name: string;
+    email: string;
+    googleId?: string | null;
+    avatarUrl?: string | null;
+  }) {
+    const normalizedEmail = data.email.trim().toLowerCase();
+
+    const displayName =
+      data.name?.trim() || normalizedEmail.split("@")[0] || "Usuário";
+
+    const usernameBase = buildUsernameBaseFromNameOrEmail(
+      displayName,
+      normalizedEmail
+    );
+
+    const username = await buildUniqueUsername(usernameBase);
+
+    return prisma.user.create({
+      data: {
+        name: displayName,
+        username,
+        email: normalizedEmail,
+        avatarUrl: data.avatarUrl ?? null,
+        passwordHash: null,
+        authProvider: AuthProvider.GOOGLE,
+        googleId: data.googleId ?? null,
+        lifePoints: 3,
+        batutaPoints: 0,
+        xpPoints: 0,
+        elo: Elo.FERRO,
+        progressLevel: 1,
+      },
+      select: USER_SELECT_WITH_AUTH,
     });
   }
 
@@ -50,34 +173,35 @@ export class UsersRepository {
         id: true,
         passwordHash: true,
         avatarUrl: true,
+        authProvider: true,
+        googleId: true,
       },
     });
   }
 
   async findByEmail(email: string) {
-    return prisma.user.findUnique({ where: { email } });
+    return prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
   }
 
   async findByUsername(username: string) {
-    return prisma.user.findUnique({ where: { username } });
+    return prisma.user.findUnique({
+      where: { username: normalizeUsername(username) },
+    });
+  }
+
+  async findByGoogleId(googleId: string) {
+    return prisma.user.findUnique({
+      where: { googleId },
+      select: USER_SELECT_WITH_AUTH,
+    });
   }
 
   async findByEmailWithPassword(email: string) {
     return prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        name: true,
-        username: true,
-        email: true,
-        avatarUrl: true,
-        passwordHash: true,
-        lifePoints: true,
-        batutaPoints: true,
-        xpPoints: true,
-        elo: true,
-        progressLevel: true,
-      },
+      where: { email: email.trim().toLowerCase() },
+      select: USER_SELECT_WITH_AUTH,
     });
   }
 
@@ -89,9 +213,13 @@ export class UsersRepository {
     const gs = data.gameStats;
 
     const patch: Record<string, unknown> = {
-      ...(data.name !== undefined ? { name: data.name } : {}),
-      ...(data.username !== undefined ? { username: data.username } : {}),
-      ...(data.email !== undefined ? { email: data.email } : {}),
+      ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+      ...(data.username !== undefined
+        ? { username: normalizeUsername(data.username) }
+        : {}),
+      ...(data.email !== undefined
+        ? { email: data.email.trim().toLowerCase() }
+        : {}),
       ...(gs?.lifePoints !== undefined ? { lifePoints: gs.lifePoints } : {}),
       ...(gs?.batutaPoints !== undefined
         ? { batutaPoints: gs.batutaPoints }
@@ -107,6 +235,7 @@ export class UsersRepository {
 
     if (data.password !== undefined) {
       patch.passwordHash = await bcrypt.hash(data.password, 10);
+      patch.authProvider = AuthProvider.LOCAL;
     }
 
     return prisma.user.update({
@@ -120,7 +249,10 @@ export class UsersRepository {
 
     return prisma.user.update({
       where: { id },
-      data: { passwordHash },
+      data: {
+        passwordHash,
+        authProvider: AuthProvider.LOCAL,
+      },
     });
   }
 

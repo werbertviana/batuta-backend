@@ -55,7 +55,9 @@ usersRouter.patch(
 );
 
 usersRouter.delete("/:id/avatar", controller.removeAvatar);
+
 usersRouter.patch("/:id/password", controller.changePassword);
+usersRouter.patch("/:id/set-password", controller.setPassword);
 
 usersRouter.get("/:id", controller.getById);
 usersRouter.put("/:id", controller.update);

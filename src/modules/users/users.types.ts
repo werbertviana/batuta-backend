@@ -31,12 +31,31 @@ export type UpdateUserInput = {
   gameStats?: GameStatsInput;
 };
 
+export type SetPasswordInput = {
+  newPassword: string;
+};
+
+export type ChangePasswordInput = {
+  currentPassword: string;
+  newPassword: string;
+};
+
+export type DeleteUserInput = {
+  currentPassword?: string;
+  password?: string;
+  googleIdToken?: string;
+};
+
+export type AuthProviderResponse = "local" | "google";
+
 export type UserResponse = {
   id: number;
   name: string;
   username: string;
   email: string;
-  avatarUrl?: string | null;
+  avatarUrl: string | null;
+  authProvider: AuthProviderResponse;
+  hasPassword: boolean;
   gameStats: {
     lifePoints: number;
     batutaPoints: number;

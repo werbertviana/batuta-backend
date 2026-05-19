@@ -29,14 +29,21 @@ enum QuestionType {
   FIGURA
 }
 
-model User {
-  id           Int    @id @default(autoincrement())
-  name         String
-  username     String @unique
-  email        String @unique
-  passwordHash String
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
 
-  avatarUrl String?
+model User {
+  id           Int     @id @default(autoincrement())
+  name         String
+  username     String  @unique
+  email        String  @unique
+  passwordHash String?
+
+  avatarUrl    String?
+  authProvider AuthProvider @default(LOCAL)
+  googleId     String?      @unique
 
   lifePoints    Int @default(3)
   batutaPoints  Int @default(0)

@@ -19,7 +19,7 @@ const usernameSchema = z
   .max(20, "Username deve ter no máximo 20 caracteres")
   .regex(
     /^(?!\.)(?!.*\.$)[a-zA-Z0-9._]+$/,
-    "Username deve conter apenas letras, números, ponto ou underline e não pode começar/terminar com ponto"
+    "Username deve conter apenas letras, números, ponto ou underline e não pode começar/terminar com ponto",
   );
 
 const gameStatsSchema = z
@@ -53,16 +53,22 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(4, "Nova senha deve ter no mínimo 4 caracteres"),
 });
 
+const setPasswordSchema = z.object({
+  newPassword: z.string().min(4, "Nova senha deve ter no mínimo 4 caracteres"),
+});
+
 const deleteAccountSchema = z
   .object({
     password: z.string().optional(),
     currentPassword: z.string().optional(),
+    googleIdToken: z.string().optional(),
   })
   .transform((data) => ({
-    currentPassword: data.currentPassword || data.password || "",
+    currentPassword: data.currentPassword || data.password || undefined,
+    googleIdToken: data.googleIdToken || undefined,
   }))
-  .refine((data) => data.currentPassword.trim().length > 0, {
-    message: "Senha atual é obrigatória",
+  .refine((data) => data.currentPassword || data.googleIdToken, {
+    message: "Informe a senha atual ou confirme com Google",
     path: ["currentPassword"],
   });
 
@@ -123,6 +129,19 @@ export class UsersController {
       const body = changePasswordSchema.parse(req.body);
 
       await this.service.changePassword(id, body);
+
+      return res.status(204).send();
+    } catch (err) {
+      return next(err);
+    }
+  };
+
+  setPassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = Number(req.params.id);
+      const body = setPasswordSchema.parse(req.body);
+
+      await this.service.setPassword(id, body);
 
       return res.status(204).send();
     } catch (err) {
