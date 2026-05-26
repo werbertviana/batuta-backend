@@ -64,13 +64,20 @@ function buildResetPasswordHtml(resetUrl: string) {
             </tr>
 
             <tr>
-              <td style="padding:34px 30px 28px;">
+              <td
+                style="
+                  padding:38px 30px 32px;
+                  text-align:center;
+                "
+              >
 
                 <h2
                   style="
-                    margin:0 0 14px;
+                    margin:0 0 18px;
                     color:#222222;
-                    font-size:26px;
+                    font-size:28px;
+                    line-height:34px;
+                    font-weight:bold;
                   "
                 >
                   Redefinição de senha
@@ -78,10 +85,11 @@ function buildResetPasswordHtml(resetUrl: string) {
 
                 <p
                   style="
-                    margin:0 0 18px;
+                    margin:0 auto 18px;
                     color:#444444;
                     font-size:16px;
                     line-height:26px;
+                    max-width:430px;
                   "
                 >
                   Recebemos uma solicitação para redefinir a senha da sua conta no Batuta.
@@ -89,18 +97,20 @@ function buildResetPasswordHtml(resetUrl: string) {
 
                 <p
                   style="
-                    margin:0 0 26px;
+                    margin:0 auto 28px;
                     color:#444444;
                     font-size:16px;
                     line-height:26px;
+                    max-width:430px;
                   "
                 >
                   Toque no botão abaixo para criar uma nova senha.
+                  <br />
                   Este link expira em
                   <strong>15 minutos</strong>.
                 </p>
 
-                <div style="text-align:center;margin:30px 0;">
+                <div style="text-align:center;margin:32px 0;">
 
                   <a
                     href="${resetUrl}"
@@ -111,7 +121,7 @@ function buildResetPasswordHtml(resetUrl: string) {
                       text-decoration:none;
                       font-size:17px;
                       font-weight:bold;
-                      padding:16px 30px;
+                      padding:16px 32px;
                       border-radius:14px;
                     "
                   >
@@ -122,11 +132,12 @@ function buildResetPasswordHtml(resetUrl: string) {
 
                 <p
                   style="
-                    margin:24px 0 0;
+                    margin:24px auto 0;
                     color:#777777;
                     font-size:14px;
                     line-height:24px;
                     text-align:center;
+                    max-width:430px;
                   "
                 >
                   Caso o aplicativo não abra automaticamente,
@@ -135,10 +146,12 @@ function buildResetPasswordHtml(resetUrl: string) {
 
                 <p
                   style="
-                    margin:28px 0 0;
+                    margin:28px auto 0;
                     color:#8a8a8a;
                     font-size:13px;
                     line-height:22px;
+                    text-align:center;
+                    max-width:430px;
                   "
                 >
                   Se você não solicitou essa alteração,
