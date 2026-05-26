@@ -7,6 +7,15 @@ export type GoogleLoginInput = {
   idToken: string;
 };
 
+export type ForgotPasswordInput = {
+  email: string;
+};
+
+export type ResetPasswordInput = {
+  token: string;
+  newPassword: string;
+};
+
 export type AuthProviderResponse = "local" | "google";
 
 export type LoginResponse = {
@@ -31,4 +40,9 @@ export type GooglePayload = {
   email: string;
   name: string;
   picture?: string | null;
+};
+
+export type ForgotPasswordResponse = {
+  message: string;
+  resetToken?: string;
 };

@@ -1,13 +1,33 @@
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import { AuthProvider } from "@prisma/client";
 import { OAuth2Client } from "google-auth-library";
 
 import { UsersRepository } from "../users/users.repository";
 import { AppError } from "../../shared/errors";
-import type { LoginResponse, GooglePayload } from "./auth.types";
+import { sendPasswordResetEmail } from "../../shared/mail";
+
+import type {
+  LoginResponse,
+  GooglePayload,
+  ForgotPasswordResponse,
+  ResetPasswordInput,
+} from "./auth.types";
 
 function getGoogleClient() {
   return new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+}
+
+function hashResetToken(token: string) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function createResetToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function minutesFromNow(minutes: number) {
+  return new Date(Date.now() + minutes * 60 * 1000);
 }
 
 export class AuthService {
@@ -68,6 +88,94 @@ export class AuthService {
     }
 
     return this.toLoginResponse(user);
+  }
+
+  async forgotPassword(email: string): Promise<ForgotPasswordResponse> {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const defaultMessage =
+      "Se o email estiver cadastrado, enviaremos instruções para redefinir sua senha.";
+
+    const user = await this.usersRepo.findByEmail(normalizedEmail);
+
+    if (!user) {
+      return { message: defaultMessage };
+    }
+
+    if (user.authProvider === AuthProvider.GOOGLE && !user.passwordHash) {
+      throw new AppError(
+        "Essa conta foi criada com Google. Entre usando o botão Continuar com Google ou defina uma senha no perfil.",
+        400,
+        "GOOGLE_ACCOUNT_USE_GOOGLE_LOGIN",
+      );
+    }
+
+    const rawToken = createResetToken();
+    const tokenHash = hashResetToken(rawToken);
+
+    await this.usersRepo.invalidatePasswordResetTokens(user.id);
+
+    await this.usersRepo.createPasswordResetToken({
+      userId: user.id,
+      tokenHash,
+      expiresAt: minutesFromNow(15),
+    });
+
+    await sendPasswordResetEmail({
+      to: normalizedEmail,
+      token: rawToken,
+    });
+
+    console.log("[PASSWORD_RESET_TOKEN]", {
+      email: normalizedEmail,
+      token: rawToken,
+    });
+
+    return {
+      message: defaultMessage,
+      ...(process.env.NODE_ENV !== "production" ? { resetToken: rawToken } : {}),
+    };
+  }
+
+  async resetPassword(input: ResetPasswordInput): Promise<void> {
+    const tokenHash = hashResetToken(input.token);
+
+    const resetToken = await this.usersRepo.findValidPasswordResetToken(
+      tokenHash,
+    );
+
+    if (!resetToken) {
+      throw new AppError(
+        "Token inválido ou expirado",
+        400,
+        "INVALID_OR_EXPIRED_RESET_TOKEN",
+      );
+    }
+
+    const user = await this.usersRepo.findByIdWithPassword(resetToken.userId);
+
+    if (!user) {
+      throw new AppError("Usuário não encontrado", 404, "USER_NOT_FOUND");
+    }
+
+    if (user.passwordHash) {
+      const newPasswordIsSameAsCurrent = await bcrypt.compare(
+        input.newPassword,
+        user.passwordHash,
+      );
+
+      if (newPasswordIsSameAsCurrent) {
+        throw new AppError(
+          "A nova senha não pode ser igual à senha atual",
+          400,
+          "SAME_PASSWORD",
+        );
+      }
+    }
+
+    await this.usersRepo.updatePassword(resetToken.userId, input.newPassword);
+
+    await this.usersRepo.markPasswordResetTokenAsUsed(resetToken.id);
   }
 
   private async verifyGoogleIdToken(idToken: string): Promise<GooglePayload> {

@@ -50,9 +50,7 @@ function normalizeUsername(value: string) {
 }
 
 function buildUsernameBaseFromNameOrEmail(name: string, email: string) {
-  const cleanName = removeAccents(name || "")
-    .trim()
-    .replace(/\s+/g, " ");
+  const cleanName = removeAccents(name || "").trim().replace(/\s+/g, " ");
 
   const nameParts = cleanName
     .split(" ")
@@ -138,7 +136,7 @@ export class UsersRepository {
 
     const usernameBase = buildUsernameBaseFromNameOrEmail(
       displayName,
-      normalizedEmail
+      normalizedEmail,
     );
 
     const username = await buildUniqueUsername(usernameBase);
@@ -260,6 +258,58 @@ export class UsersRepository {
     return prisma.user.update({
       where: { id },
       data: { avatarUrl },
+    });
+  }
+
+  async createPasswordResetToken(data: {
+    userId: number;
+    tokenHash: string;
+    expiresAt: Date;
+  }) {
+    return prisma.passwordResetToken.create({
+      data: {
+        userId: data.userId,
+        tokenHash: data.tokenHash,
+        expiresAt: data.expiresAt,
+      },
+    });
+  }
+
+  async invalidatePasswordResetTokens(userId: number) {
+    return prisma.passwordResetToken.updateMany({
+      where: {
+        userId,
+        usedAt: null,
+      },
+      data: {
+        usedAt: new Date(),
+      },
+    });
+  }
+
+  async findValidPasswordResetToken(tokenHash: string) {
+    return prisma.passwordResetToken.findFirst({
+      where: {
+        tokenHash,
+        usedAt: null,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      select: {
+        id: true,
+        userId: true,
+        expiresAt: true,
+      },
+    });
+  }
+
+  async markPasswordResetTokenAsUsed(id: number) {
+    return prisma.passwordResetToken.update({
+      where: { id },
+      data: {
+        usedAt: new Date(),
+      },
     });
   }
 

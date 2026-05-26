@@ -30,13 +30,13 @@ services:
       db:
         condition: service_healthy
 
+    env_file:
+      - .env
+
     environment:
       PORT: 3000
-      NODE_ENV: production
-
+      NODE_ENV: development
       DATABASE_URL: postgresql://postgres:postgres@db:5432/appdb?schema=public
-
-      GOOGLE_CLIENT_ID: 182427705211-2qiu01jp343n2o8aofhpjqpksn4iicbo.apps.googleusercontent.com
 
     ports:
       - "3000:3000"
