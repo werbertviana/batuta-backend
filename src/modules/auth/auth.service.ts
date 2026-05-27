@@ -1,4 +1,3 @@
-import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { AuthProvider } from "@prisma/client";
 import { OAuth2Client } from "google-auth-library";
@@ -6,6 +5,10 @@ import { OAuth2Client } from "google-auth-library";
 import { UsersRepository } from "../users/users.repository";
 import { AppError } from "../../shared/errors";
 import { sendPasswordResetEmail } from "../../shared/mail";
+import {
+  comparePassword,
+  hashPassword,
+} from "../../shared/security/password";
 
 import type {
   LoginResponse,
@@ -50,7 +53,7 @@ export class AuthService {
       );
     }
 
-    const ok = await bcrypt.compare(password, user.passwordHash);
+    const ok = await comparePassword(password, user.passwordHash);
 
     if (!ok) {
       throw new AppError("Credenciais inválidas", 401, "INVALID_CREDENTIALS");
@@ -126,10 +129,12 @@ export class AuthService {
       token: rawToken,
     });
 
-    console.log("[PASSWORD_RESET_TOKEN]", {
-      email: normalizedEmail,
-      token: rawToken,
-    });
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[PASSWORD_RESET_TOKEN]", {
+        email: normalizedEmail,
+        token: rawToken,
+      });
+    }
 
     return {
       message: defaultMessage,
@@ -140,9 +145,8 @@ export class AuthService {
   async resetPassword(input: ResetPasswordInput): Promise<void> {
     const tokenHash = hashResetToken(input.token);
 
-    const resetToken = await this.usersRepo.findValidPasswordResetToken(
-      tokenHash,
-    );
+    const resetToken =
+      await this.usersRepo.findValidPasswordResetToken(tokenHash);
 
     if (!resetToken) {
       throw new AppError(
@@ -159,7 +163,7 @@ export class AuthService {
     }
 
     if (user.passwordHash) {
-      const newPasswordIsSameAsCurrent = await bcrypt.compare(
+      const newPasswordIsSameAsCurrent = await comparePassword(
         input.newPassword,
         user.passwordHash,
       );
@@ -173,7 +177,9 @@ export class AuthService {
       }
     }
 
-    await this.usersRepo.updatePassword(resetToken.userId, input.newPassword);
+    const passwordHash = await hashPassword(input.newPassword);
+
+    await this.usersRepo.updatePassword(resetToken.userId, passwordHash);
 
     await this.usersRepo.markPasswordResetTokenAsUsed(resetToken.id);
   }

@@ -1,10 +1,15 @@
-import bcrypt from "bcrypt";
 import fs from "fs/promises";
 import path from "path";
 import { AuthProvider, Prisma } from "@prisma/client";
 import { OAuth2Client } from "google-auth-library";
+
 import { AppError, NotFoundError } from "../../shared/errors";
 import { UsersRepository } from "./users.repository";
+import {
+  comparePassword,
+  hashPassword,
+} from "../../shared/security/password";
+
 import type {
   CreateUserInput,
   UpdateUserInput,
@@ -105,7 +110,10 @@ const ELO_ORDER: EloInput[] = [
 
 const MAX_SKIPS_PER_ACTIVITY = 2;
 
-const ELO_REQUIREMENTS: Record<EloInput, { requiredXp: number; requiredBatutas: number }> = {
+const ELO_REQUIREMENTS: Record<
+  EloInput,
+  { requiredXp: number; requiredBatutas: number }
+> = {
   ferro: { requiredXp: 0, requiredBatutas: 0 },
   bronze: { requiredXp: 16, requiredBatutas: 2 },
   prata: { requiredXp: 32, requiredBatutas: 2 },
@@ -225,14 +233,7 @@ function promoteEloWithConsumption(args: {
   eloAtual: EloInput;
   batutaPoints: number;
   xpPoints: number;
-}): {
-  eloNovo: EloInput;
-  batutasRestantes: number;
-  subiuElo: boolean;
-  batutasConsumidas: number;
-  xpNecessario: number;
-  batutasNecessarias: number;
-} {
+}) {
   const { eloAtual, batutaPoints, xpPoints } = args;
   const nextElo = getNextElo(eloAtual);
 
@@ -379,8 +380,14 @@ export class UsersService {
       );
     }
 
+    const passwordHash = await hashPassword(normalizedInput.password);
+
     try {
-      const user = await this.repo.create(normalizedInput);
+      const user = await this.repo.create({
+        ...normalizedInput,
+        passwordHash,
+      });
+
       return toResponse(user);
     } catch (err) {
       if (isPrismaKnownError(err) && err.code === "P2002") {
@@ -480,7 +487,9 @@ export class UsersService {
       );
     }
 
-    await this.repo.updatePassword(id, input.newPassword);
+    const passwordHash = await hashPassword(input.newPassword);
+
+    await this.repo.updatePassword(id, passwordHash);
   }
 
   async changePassword(id: number, input: ChangePasswordInput): Promise<void> {
@@ -498,7 +507,7 @@ export class UsersService {
       );
     }
 
-    const currentPasswordMatches = await bcrypt.compare(
+    const currentPasswordMatches = await comparePassword(
       input.currentPassword,
       user.passwordHash,
     );
@@ -511,7 +520,7 @@ export class UsersService {
       );
     }
 
-    const newPasswordIsSameAsCurrent = await bcrypt.compare(
+    const newPasswordIsSameAsCurrent = await comparePassword(
       input.newPassword,
       user.passwordHash,
     );
@@ -524,7 +533,9 @@ export class UsersService {
       );
     }
 
-    await this.repo.updatePassword(id, input.newPassword);
+    const passwordHash = await hashPassword(input.newPassword);
+
+    await this.repo.updatePassword(id, passwordHash);
   }
 
   async updateAvatar(id: number, avatarUrl: string): Promise<UserResponse> {
@@ -719,7 +730,8 @@ export class UsersService {
     id: number,
     input: CompleteActivityInput,
   ): Promise<CompleteActivityResponse> {
-    const { reward, persistence } = await this.resolveActivityOutcome(id, input);
+    const { reward, persistence } =
+      await this.resolveActivityOutcome(id, input);
 
     const updatedUser = await this.repo.completeActivityTransaction({
       userId: id,
@@ -790,7 +802,7 @@ export class UsersService {
       );
     }
 
-    const passwordMatches = await bcrypt.compare(
+    const passwordMatches = await comparePassword(
       currentPassword,
       exists.passwordHash,
     );

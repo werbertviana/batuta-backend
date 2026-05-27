@@ -1,7 +1,9 @@
-import bcrypt from "bcrypt";
 import { AuthProvider, Elo, Prisma } from "@prisma/client";
 import { prisma } from "../../shared/prisma";
-import type { CreateUserInput, UpdateUserInput } from "./users.types";
+import type {
+  CreateUserRepositoryInput,
+  UpdateUserInput,
+} from "./users.types";
 
 const USER_SELECT_WITH_AUTH = {
   id: true,
@@ -58,19 +60,14 @@ function buildUsernameBaseFromNameOrEmail(name: string, email: string) {
     .filter(Boolean);
 
   if (nameParts.length >= 2) {
-    const firstName = nameParts[0];
-    const lastName = nameParts[nameParts.length - 1];
-
-    return normalizeUsername(`${firstName}.${lastName}`);
+    return normalizeUsername(`${nameParts[0]}.${nameParts[nameParts.length - 1]}`);
   }
 
   if (nameParts.length === 1) {
     return normalizeUsername(nameParts[0]);
   }
 
-  const emailPrefix = email.split("@")[0] || "usuario";
-
-  return normalizeUsername(emailPrefix) || "usuario";
+  return normalizeUsername(email.split("@")[0] || "usuario") || "usuario";
 }
 
 async function buildUniqueUsername(base: string) {
@@ -81,9 +78,7 @@ async function buildUniqueUsername(base: string) {
     select: { id: true },
   });
 
-  if (!existingBase) {
-    return safeBase;
-  }
+  if (!existingBase) return safeBase;
 
   for (let index = 1; index <= 100; index += 1) {
     const candidate = `${safeBase}${index}`;
@@ -93,26 +88,23 @@ async function buildUniqueUsername(base: string) {
       select: { id: true },
     });
 
-    if (!existing) {
-      return candidate;
-    }
+    if (!existing) return candidate;
   }
 
   return `${safeBase}.${Date.now()}`;
 }
 
 export class UsersRepository {
-  async create(data: CreateUserInput) {
+  async create(data: CreateUserRepositoryInput) {
     const gs = data.gameStats ?? {};
     const normalizedEmail = data.email.trim().toLowerCase();
-    const passwordHash = await bcrypt.hash(data.password, 10);
 
     return prisma.user.create({
       data: {
         name: data.name.trim(),
         username: normalizeUsername(data.username),
         email: normalizedEmail,
-        passwordHash,
+        passwordHash: data.passwordHash,
         authProvider: AuthProvider.LOCAL,
         lifePoints: gs.lifePoints ?? 3,
         batutaPoints: gs.batutaPoints ?? 0,
@@ -173,6 +165,7 @@ export class UsersRepository {
         avatarUrl: true,
         authProvider: true,
         googleId: true,
+        email: true,
       },
     });
   }
@@ -231,20 +224,13 @@ export class UsersRepository {
         : {}),
     };
 
-    if (data.password !== undefined) {
-      patch.passwordHash = await bcrypt.hash(data.password, 10);
-      patch.authProvider = AuthProvider.LOCAL;
-    }
-
     return prisma.user.update({
       where: { id },
       data: patch,
     });
   }
 
-  async updatePassword(id: number, password: string) {
-    const passwordHash = await bcrypt.hash(password, 10);
-
+  async updatePassword(id: number, passwordHash: string) {
     return prisma.user.update({
       where: { id },
       data: {
@@ -413,7 +399,7 @@ export class UsersRepository {
         });
       }
 
-      const updatedUser = await tx.user.update({
+      return tx.user.update({
         where: { id: userId },
         data: {
           xpPoints,
@@ -423,8 +409,6 @@ export class UsersRepository {
           progressLevel,
         },
       });
-
-      return updatedUser;
     });
   }
 

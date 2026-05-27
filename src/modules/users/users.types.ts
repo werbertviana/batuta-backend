@@ -23,11 +23,14 @@ export type CreateUserInput = {
   gameStats?: GameStatsInput;
 };
 
+export type CreateUserRepositoryInput = CreateUserInput & {
+  passwordHash: string;
+};
+
 export type UpdateUserInput = {
   name?: string;
   username?: string;
   email?: string;
-  password?: string;
   gameStats?: GameStatsInput;
 };
 
