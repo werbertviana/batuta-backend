@@ -1,6 +1,42 @@
+# dependencies
 node_modules
+
+# build
 dist
+
+# env
 .env
 .env.*
+!.env.example
+
+# uploads
+uploads
+
+# prisma
 prisma/dev.db
+prisma/dev.db-journal
+
+# logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
 .DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+
+# Docker
+docker-data
+
+# coverage/tests
+coverage
+
+# temporary
+tmp
+temp
