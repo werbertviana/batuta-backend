@@ -14,6 +14,7 @@ const USER_SELECT_WITH_AUTH = {
   passwordHash: true,
   authProvider: true,
   googleId: true,
+  hasSeenTutorial: true,
   lifePoints: true,
   batutaPoints: true,
   xpPoints: true,
@@ -106,12 +107,14 @@ export class UsersRepository {
         email: normalizedEmail,
         passwordHash: data.passwordHash,
         authProvider: AuthProvider.LOCAL,
+        hasSeenTutorial: false,
         lifePoints: gs.lifePoints ?? 3,
         batutaPoints: gs.batutaPoints ?? 0,
         xpPoints: gs.xpPoints ?? 0,
         elo: toPrismaElo(gs.elo) ?? Elo.FERRO,
         progressLevel: gs.progressLevel ?? 1,
       },
+      select: USER_SELECT_WITH_AUTH,
     });
   }
 
@@ -142,6 +145,7 @@ export class UsersRepository {
         passwordHash: null,
         authProvider: AuthProvider.GOOGLE,
         googleId: data.googleId ?? null,
+        hasSeenTutorial: false,
         lifePoints: 3,
         batutaPoints: 0,
         xpPoints: 0,
@@ -153,7 +157,10 @@ export class UsersRepository {
   }
 
   async findById(id: number) {
-    return prisma.user.findUnique({ where: { id } });
+    return prisma.user.findUnique({
+      where: { id },
+      select: USER_SELECT_WITH_AUTH,
+    });
   }
 
   async findByIdWithPassword(id: number) {
@@ -173,12 +180,14 @@ export class UsersRepository {
   async findByEmail(email: string) {
     return prisma.user.findUnique({
       where: { email: email.trim().toLowerCase() },
+      select: USER_SELECT_WITH_AUTH,
     });
   }
 
   async findByUsername(username: string) {
     return prisma.user.findUnique({
       where: { username: normalizeUsername(username) },
+      select: USER_SELECT_WITH_AUTH,
     });
   }
 
@@ -197,7 +206,10 @@ export class UsersRepository {
   }
 
   async list() {
-    return prisma.user.findMany({ orderBy: { id: "desc" } });
+    return prisma.user.findMany({
+      orderBy: { id: "desc" },
+      select: USER_SELECT_WITH_AUTH,
+    });
   }
 
   async update(id: number, data: UpdateUserInput) {
@@ -227,6 +239,17 @@ export class UsersRepository {
     return prisma.user.update({
       where: { id },
       data: patch,
+      select: USER_SELECT_WITH_AUTH,
+    });
+  }
+
+  async markTutorialAsSeen(id: number) {
+    return prisma.user.update({
+      where: { id },
+      data: {
+        hasSeenTutorial: true,
+      },
+      select: USER_SELECT_WITH_AUTH,
     });
   }
 
@@ -237,6 +260,7 @@ export class UsersRepository {
         passwordHash,
         authProvider: AuthProvider.LOCAL,
       },
+      select: USER_SELECT_WITH_AUTH,
     });
   }
 
@@ -244,6 +268,7 @@ export class UsersRepository {
     return prisma.user.update({
       where: { id },
       data: { avatarUrl },
+      select: USER_SELECT_WITH_AUTH,
     });
   }
 
@@ -408,6 +433,7 @@ export class UsersRepository {
           elo: toPrismaElo(elo) ?? Elo.FERRO,
           progressLevel,
         },
+        select: USER_SELECT_WITH_AUTH,
       });
     });
   }

@@ -26,6 +26,7 @@ export type LoginResponse = {
   avatarUrl: string | null;
   authProvider: AuthProviderResponse;
   hasPassword: boolean;
+  hasSeenTutorial: boolean;
   gameStats: {
     lifePoints: number;
     batutaPoints: number;

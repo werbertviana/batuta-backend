@@ -41,9 +41,10 @@ model User {
   email        String  @unique
   passwordHash String?
 
-  avatarUrl    String?
-  authProvider AuthProvider @default(LOCAL)
-  googleId     String?      @unique
+  avatarUrl       String?
+  authProvider    AuthProvider @default(LOCAL)
+  googleId        String?      @unique
+  hasSeenTutorial Boolean      @default(false)
 
   lifePoints    Int @default(3)
   batutaPoints  Int @default(0)
@@ -51,8 +52,8 @@ model User {
   elo           Elo @default(FERRO)
   progressLevel Int @default(1)
 
-  activityProgress   UserActivityProgress[]
-  lessonRewards      UserLessonReward[]
+  activityProgress    UserActivityProgress[]
+  lessonRewards       UserLessonReward[]
   passwordResetTokens PasswordResetToken[]
 
   createdAt DateTime @default(now())

@@ -232,6 +232,7 @@ export class AuthService {
       authProvider:
         user.authProvider === AuthProvider.GOOGLE ? "google" : "local",
       hasPassword: Boolean(user.passwordHash),
+      hasSeenTutorial: Boolean(user.hasSeenTutorial),
       gameStats: {
         lifePoints: user.lifePoints,
         batutaPoints: user.batutaPoints,

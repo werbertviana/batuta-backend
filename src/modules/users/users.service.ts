@@ -59,6 +59,7 @@ function toResponse(u: any): UserResponse {
     avatarUrl: u.avatarUrl ?? null,
     authProvider: u.authProvider === AuthProvider.GOOGLE ? "google" : "local",
     hasPassword: Boolean(u.passwordHash),
+    hasSeenTutorial: Boolean(u.hasSeenTutorial),
     gameStats: {
       lifePoints: u.lifePoints,
       batutaPoints: u.batutaPoints,
@@ -470,6 +471,18 @@ export class UsersService {
 
       throw err;
     }
+  }
+
+  async markTutorialAsSeen(id: number): Promise<UserResponse> {
+    const exists = await this.repo.findById(id);
+
+    if (!exists) {
+      throw new NotFoundError("User not found", "USER_NOT_FOUND");
+    }
+
+    const user = await this.repo.markTutorialAsSeen(id);
+
+    return toResponse(user);
   }
 
   async setPassword(id: number, input: SetPasswordInput): Promise<void> {

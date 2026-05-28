@@ -80,6 +80,16 @@ const activitySchema = z.object({
   totalQuestoes: z.number().int().min(1),
 });
 
+function parseId(value: string) {
+  const id = Number(value);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new AppError("Invalid user id", 400, "INVALID_USER_ID");
+  }
+
+  return id;
+}
+
 export class UsersController {
   constructor(private service = new UsersService()) {}
 
@@ -94,7 +104,7 @@ export class UsersController {
 
   getById = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseId(req.params.id);
       const user = await this.service.getUser(id);
       return res.json(user);
     } catch (err) {
@@ -114,7 +124,7 @@ export class UsersController {
 
   update = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseId(req.params.id);
       const body = updateSchema.parse(req.body);
       const user = await this.service.updateUser(id, body);
       return res.json(user);
@@ -123,9 +133,23 @@ export class UsersController {
     }
   };
 
+  markTutorialAsSeen = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    try {
+      const id = parseId(req.params.id);
+      const user = await this.service.markTutorialAsSeen(id);
+      return res.json(user);
+    } catch (err) {
+      return next(err);
+    }
+  };
+
   changePassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseId(req.params.id);
       const body = changePasswordSchema.parse(req.body);
 
       await this.service.changePassword(id, body);
@@ -138,7 +162,7 @@ export class UsersController {
 
   setPassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseId(req.params.id);
       const body = setPasswordSchema.parse(req.body);
 
       await this.service.setPassword(id, body);
@@ -151,7 +175,7 @@ export class UsersController {
 
   updateAvatar = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseId(req.params.id);
 
       if (!req.file) {
         throw new AppError("Avatar image is required", 400, "AVATAR_REQUIRED");
@@ -168,7 +192,7 @@ export class UsersController {
 
   removeAvatar = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseId(req.params.id);
       const user = await this.service.removeAvatar(id);
 
       return res.json(user);
@@ -179,7 +203,7 @@ export class UsersController {
 
   previewActivity = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseId(req.params.id);
       const body = activitySchema.parse(req.body);
       const result = await this.service.previewActivity(id, body);
       return res.json(result);
@@ -190,7 +214,7 @@ export class UsersController {
 
   completeActivity = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseId(req.params.id);
       const body = activitySchema.parse(req.body);
       const result = await this.service.completeActivity(id, body);
       return res.json(result);
@@ -201,7 +225,7 @@ export class UsersController {
 
   delete = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseId(req.params.id);
       const body = deleteAccountSchema.parse(req.body);
 
       await this.service.deleteUser(id, body);

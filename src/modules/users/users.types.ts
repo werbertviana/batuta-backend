@@ -7,6 +7,8 @@ export type EloInput =
   | "diamante"
   | "maestro";
 
+export type AuthProviderResponse = "local" | "google";
+
 export type GameStatsInput = {
   lifePoints?: number;
   batutaPoints?: number;
@@ -31,7 +33,26 @@ export type UpdateUserInput = {
   name?: string;
   username?: string;
   email?: string;
+  password?: string;
   gameStats?: GameStatsInput;
+};
+
+export type UserResponse = {
+  id: number;
+  name: string;
+  username: string;
+  email: string;
+  avatarUrl: string | null;
+  authProvider: AuthProviderResponse;
+  hasPassword: boolean;
+  hasSeenTutorial: boolean;
+  gameStats: {
+    lifePoints: number;
+    batutaPoints: number;
+    xpPoints: number;
+    elo: EloInput;
+    progressLevel: number;
+  };
 };
 
 export type SetPasswordInput = {
@@ -44,28 +65,9 @@ export type ChangePasswordInput = {
 };
 
 export type DeleteUserInput = {
-  currentPassword?: string;
   password?: string;
+  currentPassword?: string;
   googleIdToken?: string;
-};
-
-export type AuthProviderResponse = "local" | "google";
-
-export type UserResponse = {
-  id: number;
-  name: string;
-  username: string;
-  email: string;
-  avatarUrl: string | null;
-  authProvider: AuthProviderResponse;
-  hasPassword: boolean;
-  gameStats: {
-    lifePoints: number;
-    batutaPoints: number;
-    xpPoints: number;
-    elo: EloInput;
-    progressLevel: number;
-  };
 };
 
 export type CompleteActivityInput = {
