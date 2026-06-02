@@ -140,7 +140,10 @@ export class UsersController {
   ) => {
     try {
       const id = parseId(req.params.id);
-      const user = await this.service.markTutorialAsSeen(id);
+      const tutorialKey = String(req.params.tutorialKey || "").trim();
+
+      const user = await this.service.markTutorialAsSeen(id, tutorialKey);
+
       return res.json(user);
     } catch (err) {
       return next(err);

@@ -14,12 +14,17 @@ const USER_SELECT_WITH_AUTH = {
   passwordHash: true,
   authProvider: true,
   googleId: true,
-  hasSeenTutorial: true,
   lifePoints: true,
   batutaPoints: true,
   xpPoints: true,
   elo: true,
   progressLevel: true,
+  tutorialProgress: {
+    select: {
+      tutorialKey: true,
+      seenAt: true,
+    },
+  },
 };
 
 function toPrismaElo(elo?: string): Elo | undefined {
@@ -61,7 +66,9 @@ function buildUsernameBaseFromNameOrEmail(name: string, email: string) {
     .filter(Boolean);
 
   if (nameParts.length >= 2) {
-    return normalizeUsername(`${nameParts[0]}.${nameParts[nameParts.length - 1]}`);
+    return normalizeUsername(
+      `${nameParts[0]}.${nameParts[nameParts.length - 1]}`,
+    );
   }
 
   if (nameParts.length === 1) {
@@ -107,7 +114,6 @@ export class UsersRepository {
         email: normalizedEmail,
         passwordHash: data.passwordHash,
         authProvider: AuthProvider.LOCAL,
-        hasSeenTutorial: false,
         lifePoints: gs.lifePoints ?? 3,
         batutaPoints: gs.batutaPoints ?? 0,
         xpPoints: gs.xpPoints ?? 0,
@@ -145,7 +151,6 @@ export class UsersRepository {
         passwordHash: null,
         authProvider: AuthProvider.GOOGLE,
         googleId: data.googleId ?? null,
-        hasSeenTutorial: false,
         lifePoints: 3,
         batutaPoints: 0,
         xpPoints: 0,
@@ -243,12 +248,25 @@ export class UsersRepository {
     });
   }
 
-  async markTutorialAsSeen(id: number) {
-    return prisma.user.update({
-      where: { id },
-      data: {
-        hasSeenTutorial: true,
+  async markTutorialAsSeen(userId: number, tutorialKey: string) {
+    await prisma.userTutorialProgress.upsert({
+      where: {
+        userId_tutorialKey: {
+          userId,
+          tutorialKey,
+        },
       },
+      update: {
+        seenAt: new Date(),
+      },
+      create: {
+        userId,
+        tutorialKey,
+      },
+    });
+
+    return prisma.user.findUnique({
+      where: { id: userId },
       select: USER_SELECT_WITH_AUTH,
     });
   }

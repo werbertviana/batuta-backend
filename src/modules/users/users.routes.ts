@@ -49,7 +49,10 @@ usersRouter.post("/", controller.create);
 usersRouter.post("/:id/preview-activity", controller.previewActivity);
 usersRouter.post("/:id/complete-activity", controller.completeActivity);
 
-usersRouter.patch("/:id/tutorial", controller.markTutorialAsSeen);
+usersRouter.patch(
+  "/:id/tutorials/:tutorialKey",
+  controller.markTutorialAsSeen,
+);
 
 usersRouter.patch(
   "/:id/avatar",

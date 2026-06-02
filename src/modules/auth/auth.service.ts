@@ -33,6 +33,17 @@ function minutesFromNow(minutes: number) {
   return new Date(Date.now() + minutes * 60 * 1000);
 }
 
+function buildTutorialsSeen(progress: any[] = []) {
+  return {
+    intro: progress.some((item) => item.tutorialKey === "intro"),
+    content: progress.some((item) => item.tutorialKey === "content"),
+    activity: progress.some((item) => item.tutorialKey === "activity"),
+    rewards: progress.some((item) => item.tutorialKey === "rewards"),
+    profile: progress.some((item) => item.tutorialKey === "profile"),
+    elos: progress.some((item) => item.tutorialKey === "elos"),
+  };
+}
+
 export class AuthService {
   constructor(private usersRepo = new UsersRepository()) {}
 
@@ -232,7 +243,7 @@ export class AuthService {
       authProvider:
         user.authProvider === AuthProvider.GOOGLE ? "google" : "local",
       hasPassword: Boolean(user.passwordHash),
-      hasSeenTutorial: Boolean(user.hasSeenTutorial),
+      tutorialsSeen: buildTutorialsSeen(user.tutorialProgress),
       gameStats: {
         lifePoints: user.lifePoints,
         batutaPoints: user.batutaPoints,

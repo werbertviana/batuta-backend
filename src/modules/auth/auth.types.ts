@@ -18,6 +18,16 @@ export type ResetPasswordInput = {
 
 export type AuthProviderResponse = "local" | "google";
 
+export type TutorialKey =
+  | "intro"
+  | "content"
+  | "activity"
+  | "rewards"
+  | "profile"
+  | "elos";
+
+export type TutorialsSeen = Record<TutorialKey, boolean>;
+
 export type LoginResponse = {
   id: number;
   name: string;
@@ -26,7 +36,9 @@ export type LoginResponse = {
   avatarUrl: string | null;
   authProvider: AuthProviderResponse;
   hasPassword: boolean;
-  hasSeenTutorial: boolean;
+
+  tutorialsSeen: TutorialsSeen;
+
   gameStats: {
     lifePoints: number;
     batutaPoints: number;

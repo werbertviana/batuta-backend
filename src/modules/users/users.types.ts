@@ -9,6 +9,16 @@ export type EloInput =
 
 export type AuthProviderResponse = "local" | "google";
 
+export type TutorialKey =
+  | "intro"
+  | "content"
+  | "activity"
+  | "rewards"
+  | "profile"
+  | "elos";
+
+export type TutorialsSeen = Record<TutorialKey, boolean>;
+
 export type GameStatsInput = {
   lifePoints?: number;
   batutaPoints?: number;
@@ -45,7 +55,7 @@ export type UserResponse = {
   avatarUrl: string | null;
   authProvider: AuthProviderResponse;
   hasPassword: boolean;
-  hasSeenTutorial: boolean;
+  tutorialsSeen: TutorialsSeen;
   gameStats: {
     lifePoints: number;
     batutaPoints: number;
