@@ -53,21 +53,21 @@ export class AuthService {
     const user = await this.usersRepo.findByEmailWithPassword(normalizedEmail);
 
     if (!user) {
-      throw new AppError("Credenciais inválidas", 401, "INVALID_CREDENTIALS");
+      throw new AppError("Email não cadastrado", 401, "USER_NOT_FOUND");
     }
 
     if (!user.passwordHash) {
       throw new AppError(
         "Essa conta foi criada com Google. Entre usando o botão Continuar com Google.",
         401,
-        "GOOGLE_ACCOUNT_USE_GOOGLE_LOGIN",
+        "GOOGLE_ACCOUNT_WITHOUT_PASSWORD",
       );
     }
 
     const ok = await comparePassword(password, user.passwordHash);
 
     if (!ok) {
-      throw new AppError("Credenciais inválidas", 401, "INVALID_CREDENTIALS");
+      throw new AppError("Senha incorreta", 401, "INVALID_PASSWORD");
     }
 
     return this.toLoginResponse(user);
@@ -120,7 +120,7 @@ export class AuthService {
       throw new AppError(
         "Essa conta foi criada com Google. Entre usando o botão Continuar com Google ou defina uma senha no perfil.",
         400,
-        "GOOGLE_ACCOUNT_USE_GOOGLE_LOGIN",
+        "GOOGLE_ACCOUNT_WITHOUT_PASSWORD",
       );
     }
 
@@ -250,6 +250,11 @@ export class AuthService {
         xpPoints: user.xpPoints,
         elo: String(user.elo).toLowerCase(),
         progressLevel: user.progressLevel,
+      },
+      streak: {
+        currentStreak: user.currentStreak ?? 0,
+        bestStreak: user.bestStreak ?? 0,
+        lastPracticeAt: user.lastPracticeAt ?? null,
       },
     };
   }

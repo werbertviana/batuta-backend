@@ -357,6 +357,11 @@ export class UsersActivityService {
     return {
       user: toUserResponse(updatedUser),
       reward,
+      streak: {
+        currentStreak: updatedUser.currentStreak,
+        bestStreak: updatedUser.bestStreak,
+        lastPracticeAt: updatedUser.lastPracticeAt,
+      },
     };
   }
 }

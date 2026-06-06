@@ -51,5 +51,10 @@ export function toUserResponse(u: any): UserResponse {
       elo: toEloInput(u.elo),
       progressLevel: u.progressLevel,
     },
+    streak: {
+      currentStreak: u.currentStreak ?? 0,
+      bestStreak: u.bestStreak ?? 0,
+      lastPracticeAt: u.lastPracticeAt ?? null,
+    },
   };
 }

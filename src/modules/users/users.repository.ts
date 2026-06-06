@@ -19,6 +19,9 @@ const USER_SELECT_WITH_AUTH = {
   xpPoints: true,
   elo: true,
   progressLevel: true,
+  currentStreak: true,
+  bestStreak: true,
+  lastPracticeAt: true,
   tutorialProgress: {
     select: {
       tutorialKey: true,
@@ -100,6 +103,59 @@ async function buildUniqueUsername(base: string) {
   }
 
   return `${safeBase}.${Date.now()}`;
+}
+
+function startOfLocalDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function differenceInCalendarDays(currentDate: Date, previousDate: Date) {
+  const current = startOfLocalDay(currentDate).getTime();
+  const previous = startOfLocalDay(previousDate).getTime();
+
+  return Math.round((current - previous) / (1000 * 60 * 60 * 24));
+}
+
+function calculateStreak(args: {
+  currentStreak: number;
+  bestStreak: number;
+  lastPracticeAt: Date | null;
+}) {
+  const now = new Date();
+
+  if (!args.lastPracticeAt) {
+    return {
+      currentStreak: 1,
+      bestStreak: Math.max(args.bestStreak, 1),
+      lastPracticeAt: now,
+    };
+  }
+
+  const diffDays = differenceInCalendarDays(now, args.lastPracticeAt);
+
+  if (diffDays === 0) {
+    return {
+      currentStreak: args.currentStreak,
+      bestStreak: args.bestStreak,
+      lastPracticeAt: args.lastPracticeAt,
+    };
+  }
+
+  if (diffDays === 1) {
+    const nextCurrentStreak = args.currentStreak + 1;
+
+    return {
+      currentStreak: nextCurrentStreak,
+      bestStreak: Math.max(args.bestStreak, nextCurrentStreak),
+      lastPracticeAt: now,
+    };
+  }
+
+  return {
+    currentStreak: 1,
+    bestStreak: args.bestStreak,
+    lastPracticeAt: now,
+  };
 }
 
 export class UsersRepository {
@@ -442,6 +498,27 @@ export class UsersRepository {
         });
       }
 
+      const currentUser = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          currentStreak: true,
+          bestStreak: true,
+          lastPracticeAt: true,
+        },
+      });
+
+      const streak = currentUser
+        ? calculateStreak({
+            currentStreak: currentUser.currentStreak,
+            bestStreak: currentUser.bestStreak,
+            lastPracticeAt: currentUser.lastPracticeAt,
+          })
+        : {
+            currentStreak: 1,
+            bestStreak: 1,
+            lastPracticeAt: new Date(),
+          };
+
       return tx.user.update({
         where: { id: userId },
         data: {
@@ -450,6 +527,9 @@ export class UsersRepository {
           lifePoints,
           elo: toPrismaElo(elo) ?? Elo.FERRO,
           progressLevel,
+          currentStreak: streak.currentStreak,
+          bestStreak: streak.bestStreak,
+          lastPracticeAt: streak.lastPracticeAt,
         },
         select: USER_SELECT_WITH_AUTH,
       });

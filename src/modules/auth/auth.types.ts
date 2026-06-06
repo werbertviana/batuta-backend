@@ -34,6 +34,7 @@ export type LoginResponse = {
   username: string;
   email: string;
   avatarUrl: string | null;
+
   authProvider: AuthProviderResponse;
   hasPassword: boolean;
 
@@ -45,6 +46,12 @@ export type LoginResponse = {
     xpPoints: number;
     elo: string;
     progressLevel: number;
+  };
+
+  streak: {
+    currentStreak: number;
+    bestStreak: number;
+    lastPracticeAt: Date | null;
   };
 };
 

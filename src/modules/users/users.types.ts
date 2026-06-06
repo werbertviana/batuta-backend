@@ -27,6 +27,12 @@ export type GameStatsInput = {
   progressLevel?: number;
 };
 
+export type StreakResponse = {
+  currentStreak: number;
+  bestStreak: number;
+  lastPracticeAt: Date | null;
+};
+
 export type CreateUserInput = {
   name: string;
   username: string;
@@ -63,6 +69,7 @@ export type UserResponse = {
     elo: EloInput;
     progressLevel: number;
   };
+  streak: StreakResponse;
 };
 
 export type SetPasswordInput = {
@@ -123,4 +130,5 @@ export type PreviewActivityResponse = {
 export type CompleteActivityResponse = {
   user: UserResponse;
   reward: ActivityReward;
+  streak: StreakResponse;
 };

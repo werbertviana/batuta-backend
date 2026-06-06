@@ -51,6 +51,10 @@ model User {
   elo           Elo @default(FERRO)
   progressLevel Int @default(1)
 
+  currentStreak Int       @default(0)
+  bestStreak    Int       @default(0)
+  lastPracticeAt DateTime?
+
   activityProgress    UserActivityProgress[]
   lessonRewards       UserLessonReward[]
   passwordResetTokens PasswordResetToken[]
